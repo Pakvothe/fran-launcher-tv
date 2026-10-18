@@ -6,7 +6,9 @@
 #   scripts/bench.sh -l "stock" -p com.google.android.tvlauncher -a .MainActivity --no-compile
 #
 # Escribe una fila en <DEVICE_DIR>/bench.tsv y una sección en <DEVICE_DIR>/metricas.md.
-# Compara contra la corrida anterior del mismo paquete: si algo empeora más de 10%, sale con código 2.
+# Sale con código 2 si un tiempo, la CPU o la fluidez empeoran más de 10% contra la corrida anterior del mismo
+# paquete, o si la memoria privada o el APK pasan su presupuesto. La memoria y el APK crecen a propósito con
+# cada función: su delta se muestra, pero el gate es el presupuesto absoluto.
 #
 # Variables: SERIAL (adb), DEVICE_DIR (carpeta de resultados), NAV (keycodes de la navegación).
 set -euo pipefail
@@ -155,7 +157,7 @@ if [ -n "$PREV" ]; then
   NEW="$(printf "$ROW")"
   REGRESION="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" 'BEGIN {
     split(prev, a, "\t"); split(new, b, "\t")
-    n = split("6:APK 7:frío 8:primer_frame 9:home 10:privado 14:graphics 15:TOTAL_PSS 16:CPU 17:jank 20:p99", m, " ")
+    n = split("7:frío 8:primer_frame 9:home 16:CPU 17:jank 20:p99", m, " ")
     for (k = 1; k <= n; k++) { split(m[k], kv, ":"); c=kv[1]
       if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0 && b[c] > a[c]*1.1)
         printf "%s %s → %s (+%.0f%%); ", substr(m[k], length(c)+2), a[c], b[c], (b[c]/a[c]-1)*100 }
@@ -174,8 +176,19 @@ fi
   printf '| CPU en reposo (60 s) | %s%% (escala %s%%) | < 2%% |\n' "$CPU" "$((NCPU*100))"
   printf '| Fluidez | %s%% lentos de %s frames; p50 %s, p90 %s, p99 %s ms | < 1%%, p99 < 16 ms |\n' "${JANK:--}" "${FRAMES:--}" "${P50:--}" "${P90:--}" "${P99:--}"
   printf '| Heap Java en reposo | Δ %s KB | 0 |\n' "$HEAP_DELTA"
-  if [ -n "$REGRESION" ]; then printf '\n⚠️ **Regresión > 10%% contra la corrida anterior:** %s\n' "$REGRESION"; fi
 } >> "$DEVICE_DIR/metricas.md"
+
+DELTAS=""
+if [ -n "$PREV" ]; then
+  DELTAS="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" 'BEGIN { split(prev, a, "\t"); split(new, b, "\t")
+    n = split("6:APK_KB 10:privado_KB 14:graphics_KB 15:TOTAL_PSS_KB", m, " ")
+    for (k = 1; k <= n; k++) { split(m[k], kv, ":"); c = kv[1]
+      if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0) printf "%s %+.0f%%; ", kv[2], (b[c]/a[c]-1)*100 } }')"
+fi
+awk -v p="$PRIV" 'BEGIN{exit !(p >= 15*1024)}' && REGRESION="${REGRESION}privado $(mb $PRIV) MB ≥ 15 MB; "
+awk -v k="$APK_KB" 'BEGIN{exit !(k >= 250)}' && REGRESION="${REGRESION}APK $APK_KB KB ≥ 250 KB; "
+if [ -n "$DELTAS" ]; then log "deltas de tamaño: $DELTAS"; printf '\nDeltas de tamaño contra la corrida anterior: %s\n' "$DELTAS" >> "$DEVICE_DIR/metricas.md"; fi
+if [ -n "$REGRESION" ]; then printf '\n⚠️ **Fuera de objetivo:** %s\n' "$REGRESION" >> "$DEVICE_DIR/metricas.md"; fi
 
 # Si cambió el build de la tele (OTA), avisar: hay que revisar aplicado.sh.
 grep -qF "$FINGERPRINT" "$DEVICE_DIR/changelog.md" 2>/dev/null || log "⚠️ fingerprint nuevo ($FINGERPRINT): posible OTA, revisar pm list packages -e"

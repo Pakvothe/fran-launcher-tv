@@ -1,6 +1,7 @@
 package pakvothe.franlauncher.tv.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 
@@ -14,5 +15,31 @@ public final class HomeActivity extends Activity {
         super.onCreate(null);
         stage = new Stage(this, t0);
         setContentView(stage);
+        // El Stage es opaco: el fondo de la ventana sería una capa de overdraw de más.
+        getWindow().setBackgroundDrawable(null);
+        applyDebugExtras(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        applyDebugExtras(intent);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        stage.onStart();
+    }
+
+    @Override
+    protected void onStop() {
+        stage.onStop();
+        super.onStop();
+    }
+
+    /** Para medir con bench.sh: am start ... --ez fl.anim false. */
+    private void applyDebugExtras(Intent i) {
+        if (i != null && i.hasExtra("fl.anim")) stage.setAnimatedBackground(i.getBooleanExtra("fl.anim", true));
     }
 }
