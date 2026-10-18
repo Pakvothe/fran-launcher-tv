@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'pakvothe.franlauncher.tv'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'pakvothe.franlauncher.tv'
+        minSdk 29
+        targetSdk 36
+        versionCode 1
+        versionName '0.1'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            // Hasta tener clave de subida (Fase 5), el release se firma con la de debug para poder medirlo.
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    buildFeatures {
+        buildConfig false
+        resValues false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation project(':core')
+}
