@@ -116,6 +116,8 @@ JANK="$(echo "$GFX" | sed -n 's/.*Janky frames: [0-9]* (\([0-9.]*\)%).*/\1/p' | 
 P50="$(echo "$GFX" | awk -F': ' '/^50th percentile/ {sub("ms","",$2); print $2; exit}')"
 P90="$(echo "$GFX" | awk -F': ' '/^90th percentile/ {sub("ms","",$2); print $2; exit}')"
 P99="$(echo "$GFX" | awk -F': ' '/^99th percentile/ {sub("ms","",$2); print $2; exit}')"
+# Sin frames, gfxinfo imprime percentiles basura.
+if [ "${FRAMES:-0}" = 0 ]; then JANK=""; P50=""; P90=""; P99=""; fi
 log "fluidez: $FRAMES frames, $JANK% lentos, p50/p90/p99 $P50/$P90/$P99 ms"
 
 # --- 4. Reposo: memoria, CPU y allocations (misma ventana de 60 s) ----------

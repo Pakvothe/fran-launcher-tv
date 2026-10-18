@@ -10,6 +10,8 @@ android {
         targetSdk 36
         versionCode 1
         versionName '0.1'
+        // El alias HOME se prende recién en la Fase 5 (gradle -PhomeEnabled=true).
+        manifestPlaceholders = [homeEnabled: project.findProperty('homeEnabled') ?: 'false']
     }
 
     buildTypes {

@@ -6,8 +6,38 @@
 
     <application
         android:allowBackup="false"
-        android:label="Fran Launcher">
+        android:label="@string/app_name"
+        android:theme="@style/Launcher">
         <!-- Deja que bench.sh trace el release con Perfetto sin hacerlo debuggable. -->
         <profileable android:shell="true" />
+
+        <activity
+            android:name=".app.HomeActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:stateNotNeeded="true"
+            android:excludeFromRecents="true"
+            android:clearTaskOnLaunch="true"
+            android:resizeableActivity="false"
+            android:screenOrientation="landscape"
+            android:configChanges="uiMode|locale|layoutDirection|fontScale|density|screenSize|smallestScreenSize|screenLayout|orientation|keyboard|keyboardHidden|navigation">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- El filtro HOME vive en un alias apagado hasta la Fase 5: si no, la tele muestra un selector al apretar Home. -->
+        <activity-alias
+            android:name=".Home"
+            android:targetActivity=".app.HomeActivity"
+            android:enabled="${homeEnabled}"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity-alias>
     </application>
 </manifest>
