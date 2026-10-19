@@ -9,7 +9,7 @@ public final class SnapshotCodec {
     static final int CONFIG_MAGIC = 0x464C4346; // FLCF
     static final int CACHE_MAGIC = 0x464C4341;  // FLCA
     public static final int CONFIG_VERSION = 1;
-    public static final int CACHE_VERSION = 1;
+    public static final int CACHE_VERSION = 2;
 
     private SnapshotCodec() {}
 
@@ -74,6 +74,7 @@ public final class SnapshotCodec {
             out.writeShort(e.banner);
             out.writeShort(e.icon);
             out.writeLong(e.stamp);
+            out.writeBoolean(e.system);
         }
     }
 
@@ -102,8 +103,9 @@ public final class SnapshotCodec {
                 int banner = in.readShort();
                 int icon = in.readShort();
                 long stamp = in.readLong();
+                boolean system = in.readBoolean();
                 if ((banner >= c.bannerCount) || (icon >= c.iconCount)) return null;
-                c.apps.add(new AppEntry(comp, label, color, banner, icon, stamp));
+                c.apps.add(new AppEntry(comp, label, color, banner, icon, stamp, system));
             }
             return c;
         } catch (IOException | RuntimeException e) {

@@ -127,10 +127,12 @@ public final class AppRepository {
         List<Drawable> bannerDrawables = new ArrayList<>(list.size());
         int bannerCount = 0;
         long[] stamps = new long[list.size()];
+        boolean[] system = new boolean[list.size()];
         AppEntry[] reuse = new AppEntry[list.size()];
         for (int i = 0; i < list.size(); i++) {
             ActivityInfo ai = list.get(i).activityInfo;
             stamps[i] = stamp(pm, ai.packageName);
+            system[i] = (ai.applicationInfo.flags & android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0;
             AppEntry o = old.get(ai.packageName + "/" + ai.name);
             boolean cellsOk = o != null && prevBanners != null && prevIcons != null;
             if (cellsOk && o.stamp == stamps[i]) {
@@ -189,7 +191,7 @@ public final class AppRepository {
                     drawInto(bc, b, dst);
                 }
             }
-            r.cache.apps.add(new AppEntry(comp, label, color, banner, i, stamps[i]));
+            r.cache.apps.add(new AppEntry(comp, label, color, banner, i, stamps[i], system[i]));
         }
         r.cache.bannerCount = bannerCount;
         r.cache.iconCount = list.size();

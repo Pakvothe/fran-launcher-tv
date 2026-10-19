@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Locale;
 
+import pakvothe.franlauncher.tv.R;
 import pakvothe.franlauncher.tv.anim.Animator;
 import pakvothe.franlauncher.tv.anim.ClockTicker;
 import pakvothe.franlauncher.tv.anim.SlowTicker;
@@ -29,6 +30,7 @@ import pakvothe.franlauncher.tv.scene.AppListPanel;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
 import pakvothe.franlauncher.tv.scene.PanelLayer;
 import pakvothe.franlauncher.tv.scene.Layer;
+import pakvothe.franlauncher.tv.scene.MenuLayer;
 import pakvothe.franlauncher.tv.scene.ShelfLayer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
 import pakvothe.franlauncher.tv.theme.PhaseResolver;
@@ -48,6 +50,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final ShelfLayer shelf;
     final PanelLayer panel;
     final AppListPanel allApps;
+    final MenuLayer menu;
+    private static final int ACT_MOVE = 0, ACT_REMOVE = 1, ACT_ADD = 2, ACT_INFO = 3, ACT_UNINSTALL = 4;
+    private final int[] menuActions = new int[4];
+    private AppEntry menuTarget;
+    private int movingIndex = -1;
     /** Apps del panel Todas, ordenadas con el Collator del locale. */
     private final List<AppEntry> sorted = new ArrayList<>();
     final FocusModel focus = new FocusModel();
@@ -95,13 +102,15 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         shelf.setInvalidator(this::invalidate);
         panel = new PanelLayer(animator);
         allApps = new AppListPanel(context, animator);
-        layers = new Layer[] {sky, clock, shelf, panel};
+        menu = new MenuLayer(context, animator);
+        layers = new Layer[] {sky, clock, shelf, panel, menu};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
         clock.setTheme(theme);
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
+        menu.setTheme(theme);
         resolveFavorites();
         focusLastApp(false);
         clock.tick(System.currentTimeMillis());
@@ -109,6 +118,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     void onStart() {
         started = true;
+        // Al volver de otra app (o de desinstalar): resincronizar. En el arranque lo hace el primer frame.
+        if (firstFrameLogged) syncApps();
         refreshTheme(false);
         clockTicker.start();
         updateSlowTicker();
@@ -215,6 +226,58 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         updateSlowTicker();
     }
 
+    private void openMenu() {
+        boolean fromShelf = focus.state() == FocusModel.SHELF;
+        menuTarget = fromShelf ? favorites.get(focus.focusedFavorite()) : allApps.focused();
+        if (menuTarget == null) return;
+        boolean isFav = config.favorites.contains(menuTarget.component);
+        int n = 0;
+        if (fromShelf) {
+            menuActions[n++] = ACT_MOVE;
+            menuActions[n++] = ACT_REMOVE;
+        } else {
+            menuActions[n++] = isFav ? ACT_REMOVE : ACT_ADD;
+        }
+        menuActions[n++] = ACT_INFO;
+        if (!menuTarget.system) menuActions[n++] = ACT_UNINSTALL;
+        String[] labels = new String[n];
+        int[] ids = {R.string.move, R.string.remove_home, R.string.add_home, R.string.app_info, R.string.uninstall};
+        for (int i = 0; i < n; i++) labels[i] = getContext().getString(ids[menuActions[i]]);
+        focus.openMenu(n);
+        float s = getHeight() / 1080f;
+        if (fromShelf) menu.show(menuTarget.label, labels, shelf.centerX(focus.index()), shelf.top() - 36 * s);
+        else menu.show(menuTarget.label, labels, panel.left() - 240 * s, getHeight() / 2f + 160 * s);
+        menu.setFocus(0);
+    }
+
+    private void runMenuAction(int action) {
+        AppEntry e = menuTarget;
+        if (e == null) return;
+        switch (action) {
+            case ACT_MOVE:
+                movingIndex = focus.index();
+                focus.startMoving();
+                shelf.setMoving(true);
+                break;
+            case ACT_REMOVE:
+                config.favorites.remove(e.component);
+                resolveFavorites();
+                shelf.setFocus(focus.index(), false);
+                repo.saveConfig(config.copy());
+                break;
+            case ACT_ADD:
+                if (!config.favorites.contains(e.component)) config.favorites.add(e.component);
+                resolveFavorites();
+                repo.saveConfig(config.copy());
+                break;
+            case ACT_INFO:
+                Launch.appInfo(getContext(), e.packageName());
+                break;
+            default:
+                Launch.uninstall(getContext(), e.packageName());
+        }
+    }
+
     private void launch(AppEntry e) {
         if (Launch.app(getContext(), e.component)) {
             config.lastApp = e.component;
@@ -248,7 +311,40 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                 if (e != null) launch(e);
                 break;
             }
+            case FocusModel.OPEN_MENU:
+                openMenu();
+                break;
+            case FocusModel.MENU_FOCUS:
+                menu.setFocus(focus.menuIndex());
+                break;
+            case FocusModel.MENU_PICK:
+                menu.hide(true);
+                runMenuAction(menuActions[focus.menuIndex()]);
+                break;
+            case FocusModel.CLOSE_MENU:
+                menu.hide(true);
+                break;
+            case FocusModel.MOVE_STEP: {
+                // Se mueve sobre la lista resuelta: config.favorites puede tener apps que hoy no están instaladas.
+                int to = focus.index();
+                List<String> order = new ArrayList<>();
+                for (AppEntry f : favorites) order.add(f.component);
+                order.add(to, order.remove(movingIndex));
+                for (String f : config.favorites) if (!order.contains(f)) order.add(f);
+                config.favorites.clear();
+                config.favorites.addAll(order);
+                movingIndex = to;
+                resolveFavorites();
+                shelf.setFocus(to, true);
+                break;
+            }
+            case FocusModel.MOVE_DROP:
+                movingIndex = -1;
+                shelf.setMoving(false);
+                repo.saveConfig(config.copy());
+                break;
             case FocusModel.CLOSE_PANEL:
+                if (menu.isOpen()) menu.hide(true);
                 closePanel(true);
                 if (key == FocusModel.HOME) {
                     focus.focusShelf(0);
@@ -271,6 +367,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     void onStop() {
         started = false;
+        if (menu.isOpen()) {
+            menu.hide(false);
+            focus.closeMenu();
+        }
+        if (focus.state() == FocusModel.MOVING) onKey(FocusModel.OK);
         closePanel(false);
         slow.stop();
         clockPendingSince = -1;
@@ -298,6 +399,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
+        menu.setTheme(theme);
         invalidate();
     }
 

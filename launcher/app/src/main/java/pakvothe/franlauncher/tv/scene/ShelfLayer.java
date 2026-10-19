@@ -36,6 +36,9 @@ public final class ShelfLayer extends Layer {
     private final Animator animator;
     private final RenderNode row = new RenderNode("shelf.row");
     private final RenderNode label = new RenderNode("shelf.label");
+    /** Flechas de Mover sobre el recuadro con foco. */
+    private final RenderNode arrows = new RenderNode("shelf.arrows");
+    private boolean moving;
     private final List<Item> items = new ArrayList<>();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), ring = Icons.strokePaint();
     private final Paint iconFill = new Paint(Paint.ANTI_ALIAS_FLAG), iconStroke = Icons.strokePaint();
@@ -94,6 +97,8 @@ public final class ShelfLayer extends Layer {
         row.setClipToBounds(false);
         label.setClipToBounds(false);
         label.setHasOverlappingRendering(false);
+        arrows.setClipToBounds(false);
+        arrows.setAlpha(0f);
         labelPaint = Typography.paint(context, 26, 300, false);
         labelPaint.setTextAlign(Paint.Align.CENTER);
         buttonNames = new String[] {context.getString(R.string.all_apps), context.getString(R.string.inputs),
@@ -139,6 +144,7 @@ public final class ShelfLayer extends Layer {
             shadowFocus.setColor(theme.shadowFocus);
         }
         label.setPosition(0, 0, w, h);
+        arrows.setPosition(0, 0, w, h);
         rebuild();
     }
 
@@ -249,6 +255,7 @@ public final class ShelfLayer extends Layer {
         animating(animate ? SCROLL_MS : 0);
         applyFocus(index, old, animate);
         scrollTo(index, animate);
+        recordArrows();
     }
 
     private void applyFocus(int index, int old, boolean animate) {
@@ -311,9 +318,45 @@ public final class ShelfLayer extends Layer {
         return row;
     }
 
+    /** Centro horizontal en pantalla del ítem i (incluye el desplazamiento de la fila). */
+    public float centerX(int i) {
+        if (i < 0 || i >= items.size()) return w / 2f;
+        Item it = items.get(i);
+        return rowLeft + it.x + it.w / 2 + animator.target(row, Animator.TX);
+    }
+
+    public float top() {
+        return top;
+    }
+
+    public void setMoving(boolean on) {
+        moving = on;
+        recordArrows();
+        animator.animate(arrows, Animator.ALPHA, on ? 1f : 0f, FOCUS_MS);
+        labelVisible = !on;
+        animator.animate(label, Animator.ALPHA, on ? 0f : 1f, FOCUS_MS);
+    }
+
+    private void recordArrows() {
+        if (!moving || focus < 0 || focus >= items.size()) return;
+        Item it = items.get(focus);
+        float cx = centerX(focus), cy = top + TH * s / 2 - 6 * s, dx = it.w / 2 * 1.08f + 26 * s;
+        record(arrows, w, h, c -> {
+            iconFill.setColor(theme.text);
+            iconStroke.setColor(theme.text);
+            iconStroke.setStrokeWidth(4 * s);
+            float a = 12 * s;
+            c.drawLine(cx - dx + a / 2, cy - a, cx - dx - a / 2, cy, iconStroke);
+            c.drawLine(cx - dx - a / 2, cy, cx - dx + a / 2, cy + a, iconStroke);
+            c.drawLine(cx + dx - a / 2, cy - a, cx + dx + a / 2, cy, iconStroke);
+            c.drawLine(cx + dx + a / 2, cy, cx + dx - a / 2, cy + a, iconStroke);
+        });
+    }
+
     @Override
     protected void record(RecordingCanvas c) {
         c.drawRenderNode(row);
         c.drawRenderNode(label);
+        c.drawRenderNode(arrows);
     }
 }

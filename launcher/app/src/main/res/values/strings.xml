@@ -4,4 +4,9 @@
     <string name="all_apps">Todas las apps</string>
     <string name="inputs">Entradas</string>
     <string name="settings">Ajustes</string>
+    <string name="move">Mover</string>
+    <string name="remove_home">Quitar del inicio</string>
+    <string name="add_home">Agregar al inicio</string>
+    <string name="app_info">Info de la app</string>
+    <string name="uninstall">Desinstalar</string>
 </resources>

@@ -13,14 +13,17 @@ public final class AppEntry {
     public final int icon;
     /** lastUpdateTime del paquete: si cambia, se regeneran su banner y su ícono. */
     public final long stamp;
+    /** App del sistema: no se puede desinstalar. */
+    public final boolean system;
 
-    public AppEntry(String component, String label, int color, int banner, int icon, long stamp) {
+    public AppEntry(String component, String label, int color, int banner, int icon, long stamp, boolean system) {
         this.component = component;
         this.label = label;
         this.color = color;
         this.banner = banner;
         this.icon = icon;
         this.stamp = stamp;
+        this.system = system;
     }
 
     public String packageName() {
@@ -33,7 +36,7 @@ public final class AppEntry {
         if (!(o instanceof AppEntry)) return false;
         AppEntry e = (AppEntry) o;
         return component.equals(e.component) && label.equals(e.label) && color == e.color
-            && banner == e.banner && icon == e.icon && stamp == e.stamp;
+            && banner == e.banner && icon == e.icon && stamp == e.stamp && system == e.system;
     }
 
     @Override

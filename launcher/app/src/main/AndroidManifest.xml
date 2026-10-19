@@ -4,6 +4,9 @@
     <uses-feature android:name="android.software.leanback" android:required="true" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- ACTION_DELETE lo exige desde API 28. Es el único permiso que pide la app. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+
     <!-- Sin esto, desde API 30 el sistema oculta las apps a la consulta. No hace falta QUERY_ALL_PACKAGES. -->
     <queries>
         <intent>

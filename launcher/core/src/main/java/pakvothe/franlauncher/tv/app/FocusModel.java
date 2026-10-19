@@ -14,7 +14,7 @@ public final class FocusModel {
     // Efectos
     public static final int NONE = 0, FOCUS = 1, LAUNCH = 2, OPEN_ALL = 3, OPEN_INPUTS = 4, OPEN_SETTINGS = 5,
         CLOSE_PANEL = 6, LIST_FOCUS = 7, LIST_LAUNCH = 8, INDEX_ENTER = 9, INDEX_FOCUS = 10, INDEX_EXIT = 11,
-        OPEN_MENU = 12;
+        OPEN_MENU = 12, MENU_FOCUS = 13, MENU_PICK = 14, CLOSE_MENU = 15, MOVE_STEP = 16, MOVE_DROP = 17;
     // Botones redondos al final de la fila
     public static final int BUTTON_ALL = 0, BUTTON_INPUTS = 1, BUTTON_SETTINGS = 2;
 
@@ -23,6 +23,8 @@ public final class FocusModel {
     // Panel Todas: posición en la lista, letra de cada ítem y letra elegida en el índice.
     private int listIndex, letterIndex;
     private int[] letterOf = new int[0];
+    // Menú de pulsación larga: opción con foco, cantidad y desde qué estado se abrió.
+    private int menuIndex, menuSize, menuFrom;
     private int favorites;
     private boolean hasInputs;
 
@@ -89,14 +91,89 @@ public final class FocusModel {
         state = SHELF;
     }
 
+    public int menuIndex() {
+        return menuIndex;
+    }
+
+    /** SHELF o PANEL_LIST: de dónde se abrió el menú (define las opciones y adónde vuelve). */
+    public int menuFrom() {
+        return menuFrom;
+    }
+
+    /** El Stage decide las opciones; el modelo solo recorre. */
+    public void openMenu(int size) {
+        menuFrom = state;
+        menuSize = size;
+        menuIndex = 0;
+        state = MENU;
+    }
+
+    public void closeMenu() {
+        if (state == MENU) state = menuFrom;
+    }
+
+    public void startMoving() {
+        state = MOVING;
+    }
+
     public int onKey(int key) {
         switch (state) {
+            case MENU:
+                return menu(key);
+            case MOVING:
+                return moving(key);
             case SHELF:
                 return shelf(key);
             case PANEL_LIST:
                 return list(key);
             case PANEL_INDEX:
                 return index(key);
+            default:
+                return NONE;
+        }
+    }
+
+    private int menu(int key) {
+        switch (key) {
+            case UP:
+                if (menuIndex == 0) return NONE;
+                menuIndex--;
+                return MENU_FOCUS;
+            case DOWN:
+                if (menuIndex >= menuSize - 1) return NONE;
+                menuIndex++;
+                return MENU_FOCUS;
+            case OK:
+                state = menuFrom;
+                return MENU_PICK;
+            case BACK:
+            case MENU_KEY:
+                state = menuFrom;
+                return CLOSE_MENU;
+            case HOME:
+                state = SHELF;
+                return CLOSE_PANEL;
+            default:
+                return NONE;
+        }
+    }
+
+    /** Mover: ◀ ▶ corren la favorita; OK, Atrás o Home la sueltan donde está. */
+    private int moving(int key) {
+        switch (key) {
+            case LEFT:
+                if (index == 0) return NONE;
+                index--;
+                return MOVE_STEP;
+            case RIGHT:
+                if (index >= favorites - 1) return NONE;
+                index++;
+                return MOVE_STEP;
+            case OK:
+            case BACK:
+            case HOME:
+                state = SHELF;
+                return MOVE_DROP;
             default:
                 return NONE;
         }
@@ -190,6 +267,9 @@ public final class FocusModel {
                 if (index == 0) return NONE;
                 index = 0;
                 return FOCUS;
+            case LONG_OK:
+            case MENU_KEY:
+                return focusedFavorite() >= 0 ? OPEN_MENU : NONE;
             default:
                 return NONE;
         }
