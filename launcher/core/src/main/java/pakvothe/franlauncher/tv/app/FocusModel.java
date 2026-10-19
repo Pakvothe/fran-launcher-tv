@@ -101,6 +101,10 @@ public final class FocusModel {
         rowIndex = 0;
     }
 
+    public void focusRow(int i) {
+        rowIndex = Math.max(0, Math.min(i, rowCount - 1));
+    }
+
     public void setRowCount(int count) {
         rowCount = count;
         rowIndex = Math.max(0, Math.min(rowIndex, count - 1));

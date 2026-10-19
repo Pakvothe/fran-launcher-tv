@@ -33,6 +33,8 @@ import pakvothe.franlauncher.tv.scene.InputsPanel;
 import pakvothe.franlauncher.tv.scene.Layer;
 import pakvothe.franlauncher.tv.scene.Panel;
 import pakvothe.franlauncher.tv.scene.RowsPanel;
+import pakvothe.franlauncher.tv.scene.SettingsPanel;
+import pakvothe.franlauncher.tv.scene.TextPanel;
 import pakvothe.franlauncher.tv.tv.InputsRepository;
 import pakvothe.franlauncher.tv.scene.MenuLayer;
 import pakvothe.franlauncher.tv.scene.ShelfLayer;
@@ -57,6 +59,10 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final MenuLayer menu;
     final InputsRepository inputsRepo;
     final InputsPanel inputs;
+    /** Se crean al abrirse por primera vez: no están en el camino crítico. */
+    private SettingsPanel settings;
+    private TextPanel text;
+    private int settingsRow;
     private static final int ACT_MOVE = 0, ACT_REMOVE = 1, ACT_ADD = 2, ACT_INFO = 3, ACT_UNINSTALL = 4;
     private final int[] menuActions = new int[4];
     private AppEntry menuTarget;
@@ -215,6 +221,132 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         allApps.setData(sorted, new HashSet<>(config.favorites), icons);
     }
 
+    private SettingsPanel settings() {
+        if (settings == null) {
+            String v = "1.0";
+            try {
+                v = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0).versionName;
+            } catch (android.content.pm.PackageManager.NameNotFoundException ignored) {
+            }
+            settings = new SettingsPanel(getContext(), animator, v);
+            settings.setTheme(theme);
+            settings.layout(panel.panelWidth(), panel.panelHeight(), getHeight() / 1080f);
+        }
+        return settings;
+    }
+
+    private TextPanel text() {
+        if (text == null) {
+            text = new TextPanel(getContext(), animator);
+            text.setTheme(theme);
+            text.layout(panel.panelWidth(), panel.panelHeight(), getHeight() / 1080f);
+        }
+        return text;
+    }
+
+    private void openSettings(int row) {
+        SettingsPanel sp = settings();
+        sp.bind(config);
+        focus.openRows(sp.size());
+        focus.focusRow(row);
+        sp.setFocus(focus.rowIndex(), false);
+        if (panel.isOpen()) panel.show(sp); else openPanel(sp);
+        // ¿Somos el inicio? PackageManager fuera del main.
+        repo.post(() -> {
+            android.content.pm.ResolveInfo ri = getContext().getPackageManager().resolveActivity(
+                new android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_HOME),
+                android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+            boolean home = ri != null && getContext().getPackageName().equals(ri.activityInfo.packageName);
+            post(() -> {
+                sp.setHomeStatus(home);
+                sp.bind(config);
+                invalidate();
+            });
+        });
+    }
+
+    private void openText(String title, String body) {
+        TextPanel tp = text();
+        tp.setText(title, body);
+        tp.scrollTo(0);
+        focus.openRows(tp.steps());
+        panel.show(tp);
+    }
+
+    private void pickSetting(int row) {
+        settingsRow = row;
+        switch (row) {
+            case SettingsPanel.THEME:
+                config.theme = (config.theme + 1) % 3;
+                themeMode = config.theme;
+                refreshTheme(true);
+                break;
+            case SettingsPanel.SECONDS:
+                config.seconds = (config.seconds + 1) % 3;
+                setSecondsMode(config.seconds);
+                break;
+            case SettingsPanel.ANIM:
+                config.animatedBackground = !config.animatedBackground;
+                setAnimatedBackground(config.animatedBackground);
+                break;
+            case SettingsPanel.AMBIENT:
+                config.ambient = (config.ambient + 1) % Config.AMBIENT_SECONDS.length;
+                break;
+            case SettingsPanel.HOUR:
+                config.hourFormat = (config.hourFormat + 1) % 3;
+                setHourFormat(config.hourFormat);
+                break;
+            case SettingsPanel.OLED:
+                config.oledProtection = !config.oledProtection;
+                break;
+            case SettingsPanel.NOW_PLAYING:
+                config.showNowPlaying = !config.showNowPlaying;
+                break;
+            case SettingsPanel.TV:
+                Launch.systemSettings(getContext());
+                return;
+            case SettingsPanel.HOME:
+                if (!requestHomeRole()) openText(getContext().getString(R.string.home_title), getContext().getString(R.string.home_body));
+                return;
+            default:
+                repo.post(() -> {
+                    String ofl;
+                    try (java.io.InputStream in = getResources().openRawResource(R.raw.ofl)) {
+                        // readAllBytes() es API 33: a mano.
+                        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        for (int n; (n = in.read(buf)) > 0; ) out.write(buf, 0, n);
+                        ofl = out.toString("UTF-8");
+                    } catch (java.io.IOException e) {
+                        ofl = "";
+                    }
+                    // La OFL viene cortada a 80 columnas: se unen las líneas de cada párrafo y se sacan los separadores.
+                    String flow = ofl.replace("\r", "").replaceAll("(?m)^-+$", "").replaceAll("([^\n])\n(?=[^\n])", "$1 ")
+                        .replaceAll("\n{3,}", "\n\n").trim();
+                    String body = "Outfit (fuente)\n\n" + flow;
+                    post(() -> openText(getContext().getString(R.string.set_licenses), body));
+                });
+                return;
+        }
+        settings().bind(config);
+        repo.saveConfig(config.copy());
+    }
+
+    /** RoleManager con ROLE_HOME muestra el diálogo del sistema en las teles que lo soportan. */
+    private boolean requestHomeRole() {
+        android.app.role.RoleManager rm = getContext().getSystemService(android.app.role.RoleManager.class);
+        if (rm == null || !rm.isRoleAvailable(android.app.role.RoleManager.ROLE_HOME)) return false;
+        if (rm.isRoleHeld(android.app.role.RoleManager.ROLE_HOME)) return false;
+        if (!(getContext() instanceof android.app.Activity)) return false;
+        try {
+            ((android.app.Activity) getContext()).startActivityForResult(
+                rm.createRequestRoleIntent(android.app.role.RoleManager.ROLE_HOME), 1);
+            return true;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     private void openPanel(Panel p) {
         panel.show(p);
         float left = panel.left();
@@ -317,11 +449,16 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                     invalidate();
                 });
                 break;
+            case FocusModel.OPEN_SETTINGS:
+                openSettings(0);
+                break;
             case FocusModel.ROW_FOCUS:
-                if (panel.current() instanceof RowsPanel) ((RowsPanel) panel.current()).setFocus(focus.rowIndex(), true);
+                if (panel.current() == text) text.scrollTo(focus.rowIndex());
+                else if (panel.current() instanceof RowsPanel) ((RowsPanel) panel.current()).setFocus(focus.rowIndex(), true);
                 break;
             case FocusModel.ROW_PICK:
-                if (panel.current() == inputs && inputs.get(focus.rowIndex()) != null)
+                if (panel.current() == settings) pickSetting(focus.rowIndex());
+                else if (panel.current() == inputs && inputs.get(focus.rowIndex()) != null)
                     Launch.start(getContext(), inputsRepo.intentFor(inputs.get(focus.rowIndex())));
                 break;
             case FocusModel.LIST_FOCUS:
@@ -374,6 +511,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                 break;
             case FocusModel.CLOSE_PANEL:
                 if (menu.isOpen()) menu.hide(true);
+                // Desde Licencias o Inicio, Atrás vuelve a Ajustes.
+                if (panel.current() == text && key != FocusModel.HOME) {
+                    openSettings(settingsRow);
+                    break;
+                }
                 closePanel(true);
                 if (key == FocusModel.HOME) {
                     focus.focusShelf(0);

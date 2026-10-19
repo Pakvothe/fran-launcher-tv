@@ -117,7 +117,7 @@ public class RowsPanel extends Panel {
             }
             rowTitle.setAlpha(255);
             rowValue.setAlpha(255);
-            if (!footerText.isEmpty()) c.drawText(footerText, pw / 2f, ph - 36 * s, footer);
+            if (!footerText.isEmpty()) c.drawText(footerText, pw / 2f, ph - 18 * s, footer);
         });
         Layer.record(content, pw, ph, c -> {
             c.drawRenderNode(header);
