@@ -41,6 +41,5 @@
     <string name="np_title">Mostrar o que está tocando</string>
     <string name="np_body">Requer acesso às notificações. Nada sai da TV: a permissão só é usada para saber o que está tocando.\n\nEsta TV não mostra a tela para concedê-la. De um computador com adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nPara remover: o mesmo comando com disallow_listener.</string>
     <string name="font_credit">Outfit (fonte)</string>
-    <string name="a11y_selected">%1$s, selecionado</string>
     <string name="a11y_now_playing">Tocando: %1$s. Reproduzir ou pausar</string>
 </resources>

@@ -41,6 +41,5 @@
     <string name="np_title">Show what\'s playing</string>
     <string name="np_body">Requires notification access. Nothing leaves the TV: the permission is only used to know what is playing.\n\nThis TV does not show the screen to grant it. From a computer with adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nTo remove it: the same command with disallow_listener.</string>
     <string name="font_credit">Outfit (font)</string>
-    <string name="a11y_selected">%1$s, selected</string>
     <string name="a11y_now_playing">Now playing: %1$s. Play or pause</string>
 </resources>

@@ -186,6 +186,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final AppRepository repo;
     private boolean synced;
     private final Runnable firstSync = this::syncApps;
+    private boolean prewarmed;
+    private final Runnable prewarm = this::prewarmPanels;
     private final Calendar calendar = Calendar.getInstance();
     private Theme theme;
     private int themeMode = Theme.MODE_AUTO;
@@ -263,6 +265,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     }
 
     void onDestroy() {
+        removeCallbacks(prewarm);
         android.content.pm.LauncherApps la = getContext().getSystemService(android.content.pm.LauncherApps.class);
         if (la != null) la.unregisterCallback(appsCallback);
         pakvothe.franlauncher.tv.media.MediaAccessService.onConnected = null;
@@ -277,6 +280,16 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     /** Fuera del camino crítico: se llama después del primer frame y al volver de otra app. */
     void syncApps() {
         repo.sync(cache, banners, icons, geometry, density, screenW, screenH, localeTag(), clock.dateDay(), clock.dateText());
+    }
+
+    /** En reposo, una vez por proceso: deja lista la primera apertura de Todas. */
+    private void prewarmPanels() {
+        if (prewarmed || !started || cache == null || focus.state() != FocusModel.SHELF || animator.isRunning()) return;
+        prewarmed = true;
+        refreshAllApps();
+        allApps.setIndex(-1, false);
+        allApps.setFocus(0, false);
+        panel.prewarm(allApps, null);
     }
 
     @Override
@@ -878,6 +891,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
             String proc = createdAt - born < 1000 ? String.valueOf(now - born) : "-";
             Log.i("FranLauncher", "firstframe=" + (now - createdAt) + " proc=" + proc);
             post(firstSync);
+            postDelayed(prewarm, 3000);
         }
     }
 }

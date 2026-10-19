@@ -80,6 +80,23 @@ public final class PanelLayer extends Layer {
         animator.animate(box, Animator.ALPHA, 1f, MS);
     }
 
+    /**
+     * Precalentamiento: dibuja el panel un frame casi invisible (alfa 0,4%) para que glifos, texturas y nodos
+     * ya estén listos la primera vez que se abre (medido: 14 frames lentos en el primer uso sin esto).
+     */
+    public void prewarm(Panel p, Runnable done) {
+        if (open) return;
+        current = p;
+        invalidate();
+        box.setTranslationX(0);
+        box.setAlpha(0.004f);
+        animator.animate(box, Animator.ALPHA, 0f, 120, () -> {
+            if (!open) current = null;
+            invalidate();
+            if (done != null) done.run();
+        });
+    }
+
     public void hide() {
         open = false;
         animator.animate(box, Animator.TX, 60 * s, MS);

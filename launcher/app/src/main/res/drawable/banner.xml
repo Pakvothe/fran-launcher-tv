@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Banner de Android TV (320×180): el cielo de la noche, sus dos orbes y un reloj mínimo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:pathData="M0,0h320v180h-320z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="180"
+                android:startColor="#FF0A0E1C" android:endColor="#FF1B2244" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M-20,40a100,100 0 1,0 200,0a100,100 0 1,0 -200,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="80" android:centerY="40" android:gradientRadius="100"
+                android:startColor="#B33A4C9A" android:endColor="#003A4C9A" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M170,150a90,90 0 1,0 180,0a90,90 0 1,0 -180,0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="260" android:centerY="150" android:gradientRadius="90"
+                android:startColor="#B35E3C80" android:endColor="#005E3C80" />
+        </aapt:attr>
+    </path>
+    <path android:pathData="M126,90a34,34 0 1,0 68,0a34,34 0 1,0 -68,0" android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="3" />
+    <path android:pathData="M160,90V68M160,90H178" android:strokeColor="#FFFFFFFF" android:strokeWidth="3"
+        android:strokeLineCap="round" />
+</vector>

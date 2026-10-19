@@ -41,6 +41,5 @@
     <string name="np_title">Mostrar lo que suena</string>
     <string name="np_body">Requiere acceso a notificaciones. Nada sale de la tele: el permiso solo se usa para saber qué se está reproduciendo.\n\nEsta tele no muestra la pantalla para darlo. Desde una computadora con adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nPara quitarlo: el mismo comando con disallow_listener.</string>
     <string name="font_credit">Outfit (fuente)</string>
-    <string name="a11y_selected">%1$s, seleccionado</string>
     <string name="a11y_now_playing">Reproduciendo: %1$s. Play o pausa</string>
 </resources>
