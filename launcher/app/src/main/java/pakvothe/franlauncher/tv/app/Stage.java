@@ -244,9 +244,22 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     void onStart() {
         started = true;
+        // Tema, hora y orbes antes del primer frame: al volver no puede verse la hora vieja.
+        refreshTheme(false);
+        clockTicker.start();
+        updateSlowTicker();
         // Al volver de otra app (o de desinstalar): resincronizar. En el arranque lo hace el primer frame.
         if (firstFrameLogged) syncApps();
         armAmbient();
+        // Volver a Home: lo que habla con el sistema (binder) espera a que el inicio ya esté dibujado.
+        removeCallbacks(deferredStart);
+        postDelayed(deferredStart, 100);
+    }
+
+    private final Runnable deferredStart = this::startDeferred;
+
+    private void startDeferred() {
+        if (!started) return;
         if (firstFrameLogged && config.showNowPlaying) media.start();
         if (!receiverOn) {
             android.content.IntentFilter f = new android.content.IntentFilter();
@@ -257,9 +270,6 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
             getContext().registerReceiver(timeReceiver, f);
             receiverOn = true;
         }
-        refreshTheme(false);
-        clockTicker.start();
-        updateSlowTicker();
     }
 
     void onDestroy() {
@@ -775,6 +785,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     void onStop() {
         started = false;
         removeCallbacks(ambientTimer);
+        removeCallbacks(deferredStart);
         media.stop();
         if (receiverOn) {
             getContext().unregisterReceiver(timeReceiver);
