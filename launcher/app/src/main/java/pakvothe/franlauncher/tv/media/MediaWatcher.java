@@ -29,6 +29,12 @@ public final class MediaWatcher implements MediaSessionManager.OnActiveSessionsC
     private MediaController controller;
     private boolean running;
     private Bitmap lastArtSource, lastArt;
+    // Lo último publicado: no se re-publica si nada visible cambió.
+    private String pubTitle = "", pubArtist = "", pubPkg = "";
+    private Bitmap pubArt;
+    private boolean pubPlaying;
+    /** Al pausar o reanudar, las apps pasan unas décimas por NONE/BUFFERING: ocultar espera 1,5 s. */
+    private final Runnable hide = () -> emit("", "", "", null, false);
 
     private final MediaController.Callback callback = new MediaController.Callback() {
         @Override
@@ -80,6 +86,7 @@ public final class MediaWatcher implements MediaSessionManager.OnActiveSessionsC
     public void stop() {
         if (!running) return;
         running = false;
+        handler.removeCallbacks(hide);
         msm.removeOnActiveSessionsChangedListener(this);
         if (controller != null) controller.unregisterCallback(callback);
         controller = null;
@@ -130,15 +137,32 @@ public final class MediaWatcher implements MediaSessionManager.OnActiveSessionsC
         PlaybackState st = controller != null ? controller.getPlaybackState() : null;
         int s = st != null ? st.getState() : PlaybackState.STATE_NONE;
         if (md == null || s == PlaybackState.STATE_NONE || s == PlaybackState.STATE_STOPPED || s == PlaybackState.STATE_ERROR) {
-            listener.onNowPlaying("", "", "", null, false);
+            if (!pubTitle.isEmpty()) {
+                handler.removeCallbacks(hide);
+                handler.postDelayed(hide, 1500);
+            }
             return;
         }
+        handler.removeCallbacks(hide);
         String title = first(md, MediaMetadata.METADATA_KEY_DISPLAY_TITLE, MediaMetadata.METADATA_KEY_TITLE);
         String artist = first(md, MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE, MediaMetadata.METADATA_KEY_ARTIST);
         Bitmap art = md.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
         if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_ART);
         if (art == null) art = md.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON);
-        listener.onNowPlaying(title, artist, controller.getPackageName(), small(art), s == PlaybackState.STATE_PLAYING);
+        // Estados de transición (cargando, conectando, saltando): se mantiene el ícono de antes.
+        boolean playing = s == PlaybackState.STATE_PLAYING || (s != PlaybackState.STATE_PAUSED && pubPlaying);
+        emit(title, artist, controller.getPackageName(), small(art), playing);
+    }
+
+    private void emit(String title, String artist, String pkg, Bitmap art, boolean playing) {
+        if (title.equals(pubTitle) && artist.equals(pubArtist) && pkg.equals(pubPkg) && art == pubArt && playing == pubPlaying)
+            return;
+        pubTitle = title;
+        pubArtist = artist;
+        pubPkg = pkg;
+        pubArt = art;
+        pubPlaying = playing;
+        listener.onNowPlaying(title, artist, pkg, art, playing);
     }
 
     /** Carátula a 112 px como máximo; se reusa si no cambió. */

@@ -76,6 +76,20 @@ public final class HomeActivity extends Activity {
     }
 
     @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        stage.onTrim(level);
+    }
+
+    /** La Activity nunca se recrea: los cambios de configuración llegan acá. */
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        stage.onTimeChanged();
+        stage.syncApps();
+    }
+
+    @Override
     protected void onDestroy() {
         stage.onDestroy();
         super.onDestroy();

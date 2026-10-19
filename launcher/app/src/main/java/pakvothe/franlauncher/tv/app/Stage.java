@@ -63,6 +63,43 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final MenuLayer menu;
     final DimLayer dim = new DimLayer();
     final NowPlayingPill pill;
+    /** Altas, bajas y actualizaciones de apps: se resincroniza (el diff regenera solo lo que cambió). */
+    private final android.content.pm.LauncherApps.Callback appsCallback = new android.content.pm.LauncherApps.Callback() {
+        @Override
+        public void onPackageRemoved(String p, android.os.UserHandle u) {
+            syncApps();
+        }
+
+        @Override
+        public void onPackageAdded(String p, android.os.UserHandle u) {
+            syncApps();
+        }
+
+        @Override
+        public void onPackageChanged(String p, android.os.UserHandle u) {
+            syncApps();
+        }
+
+        @Override
+        public void onPackagesAvailable(String[] p, android.os.UserHandle u, boolean r) {
+            syncApps();
+        }
+
+        @Override
+        public void onPackagesUnavailable(String[] p, android.os.UserHandle u, boolean r) {
+            syncApps();
+        }
+    };
+    /** Hora, huso, fecha y locale. Registrado en onStart y liberado en onStop. */
+    private final android.content.BroadcastReceiver timeReceiver = new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(Context c, android.content.Intent i) {
+            if (android.content.Intent.ACTION_LOCALE_CHANGED.equals(i.getAction())) syncApps();
+            onTimeChanged();
+            refreshTheme(true);
+        }
+    };
+    private boolean receiverOn;
     final MediaWatcher media;
     private final Runnable ambientTimer = this::enterAmbient;
     final InputsRepository inputsRepo;
@@ -112,6 +149,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         banners = snap.banners;
         icons = snap.icons;
         repo = new AppRepository(context, this);
+        android.content.pm.LauncherApps la = context.getSystemService(android.content.pm.LauncherApps.class);
+        if (la != null) la.registerCallback(appsCallback, new android.os.Handler(android.os.Looper.getMainLooper()));
         themeMode = config.theme;
         animatedBackground = config.animatedBackground;
         clock = new ClockLayer(context);
@@ -153,12 +192,23 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         if (firstFrameLogged) syncApps();
         armAmbient();
         if (config.showNowPlaying) media.start();
+        if (!receiverOn) {
+            android.content.IntentFilter f = new android.content.IntentFilter();
+            f.addAction(android.content.Intent.ACTION_TIME_CHANGED);
+            f.addAction(android.content.Intent.ACTION_TIMEZONE_CHANGED);
+            f.addAction(android.content.Intent.ACTION_DATE_CHANGED);
+            f.addAction(android.content.Intent.ACTION_LOCALE_CHANGED);
+            getContext().registerReceiver(timeReceiver, f);
+            receiverOn = true;
+        }
         refreshTheme(false);
         clockTicker.start();
         updateSlowTicker();
     }
 
     void onDestroy() {
+        android.content.pm.LauncherApps la = getContext().getSystemService(android.content.pm.LauncherApps.class);
+        if (la != null) la.unregisterCallback(appsCallback);
         pakvothe.franlauncher.tv.media.MediaAccessService.onConnected = null;
         removeCallbacks(firstSync);
         repo.quit();
@@ -644,6 +694,10 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         started = false;
         removeCallbacks(ambientTimer);
         media.stop();
+        if (receiverOn) {
+            getContext().unregisterReceiver(timeReceiver);
+            receiverOn = false;
+        }
         if (focus.state() == FocusModel.AMBIENT) {
             focus.onKey(FocusModel.BACK);
             exitAmbient(false);
@@ -702,6 +756,12 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         clock.setHourFormat(f);
         clock.tick(System.currentTimeMillis());
         invalidate();
+    }
+
+    /** TRIM_MEMORY_UI_HIDDEN y superiores: soltar lo que se regraba en ms (la lista de Todas, carátula). */
+    void onTrim(int level) {
+        if (level < android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN) return;
+        if (panel.current() != allApps) allApps.onHidden();
     }
 
     /** Hora, huso o locale cambiaron. */
