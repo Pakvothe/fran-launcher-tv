@@ -194,6 +194,8 @@ public final class AppRepository {
             r.cache.apps.add(new AppEntry(comp, label, color, banner, i, stamps[i], system[i]));
         }
         r.cache.bannerCount = bannerCount;
+        r.cache.hasInputs = pakvothe.franlauncher.tv.tv.InputsRepository.hasHardwareInputs(context);
+        if (prev != null && prev.hasInputs != r.cache.hasInputs) r.changed = true;
         r.cache.iconCount = list.size();
         if (prev == null || prev.apps.size() != r.cache.apps.size()) r.changed = true;
         else for (int i = 0; i < prev.apps.size() && !r.changed; i++)

@@ -13,5 +13,7 @@ public final class Cache {
     /** Fecha ya formateada (ahorra ICU en el camino crítico) y el día al que corresponde. */
     public int dateDay = -1;
     public String dateText = "";
+    /** Hay entradas de hardware (HDMI, AV...): define si se muestra el botón de Entradas. */
+    public boolean hasInputs;
     public final List<AppEntry> apps = new ArrayList<>();
 }

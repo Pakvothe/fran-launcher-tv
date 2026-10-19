@@ -29,7 +29,11 @@ import pakvothe.franlauncher.tv.data.Snapshot;
 import pakvothe.franlauncher.tv.scene.AppListPanel;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
 import pakvothe.franlauncher.tv.scene.PanelLayer;
+import pakvothe.franlauncher.tv.scene.InputsPanel;
 import pakvothe.franlauncher.tv.scene.Layer;
+import pakvothe.franlauncher.tv.scene.Panel;
+import pakvothe.franlauncher.tv.scene.RowsPanel;
+import pakvothe.franlauncher.tv.tv.InputsRepository;
 import pakvothe.franlauncher.tv.scene.MenuLayer;
 import pakvothe.franlauncher.tv.scene.ShelfLayer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
@@ -51,6 +55,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final PanelLayer panel;
     final AppListPanel allApps;
     final MenuLayer menu;
+    final InputsRepository inputsRepo;
+    final InputsPanel inputs;
     private static final int ACT_MOVE = 0, ACT_REMOVE = 1, ACT_ADD = 2, ACT_INFO = 3, ACT_UNINSTALL = 4;
     private final int[] menuActions = new int[4];
     private AppEntry menuTarget;
@@ -103,6 +109,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         panel = new PanelLayer(animator);
         allApps = new AppListPanel(context, animator);
         menu = new MenuLayer(context, animator);
+        inputsRepo = new InputsRepository(context);
+        inputs = new InputsPanel(context, animator, inputsRepo);
         layers = new Layer[] {sky, clock, shelf, panel, menu};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
@@ -110,6 +118,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
+        inputs.setTheme(theme);
         menu.setTheme(theme);
         resolveFavorites();
         focusLastApp(false);
@@ -155,6 +164,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     /** Mapea config.favorites contra el caché. Primer arranque: las primeras 6 apps con banner. */
     private void resolveFavorites() {
         favorites.clear();
+        hasInputs = cache != null && cache.hasInputs;
         if (cache != null) {
             if (!config.favoritesInitialized) {
                 for (AppEntry e : cache.apps) {
@@ -205,8 +215,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         allApps.setData(sorted, new HashSet<>(config.favorites), icons);
     }
 
-    private void openPanel() {
-        panel.show(allApps);
+    private void openPanel(Panel p) {
+        panel.show(p);
         float left = panel.left();
         animator.animate(clock.node, Animator.SCALE, 0.78f, 400);
         animator.animate(clock.node, Animator.TX, left / 2 - getWidth() / 2f, 400);
@@ -217,6 +227,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     void closePanel(boolean animate) {
         if (!panel.isOpen()) return;
         focus.closePanel();
+        if (panel.current() == inputs) inputsRepo.watch(null);
         panel.hide();
         int d = animate ? 400 : 0;
         animator.animate(clock.node, Animator.SCALE, 1f, d);
@@ -293,7 +304,25 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                 focus.openList();
                 allApps.setIndex(-1, false);
                 allApps.setFocus(0, false);
-                openPanel();
+                openPanel(allApps);
+                break;
+            case FocusModel.OPEN_INPUTS:
+                inputs.refresh();
+                focus.openRows(inputs.size());
+                inputs.setFocus(0, false);
+                openPanel(inputs);
+                inputsRepo.watch(() -> {
+                    inputs.refresh();
+                    focus.setRowCount(inputs.size());
+                    invalidate();
+                });
+                break;
+            case FocusModel.ROW_FOCUS:
+                if (panel.current() instanceof RowsPanel) ((RowsPanel) panel.current()).setFocus(focus.rowIndex(), true);
+                break;
+            case FocusModel.ROW_PICK:
+                if (panel.current() == inputs && inputs.get(focus.rowIndex()) != null)
+                    Launch.start(getContext(), inputsRepo.intentFor(inputs.get(focus.rowIndex())));
                 break;
             case FocusModel.LIST_FOCUS:
                 allApps.setFocus(focus.listIndex(), true);
@@ -399,6 +428,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
+        inputs.setTheme(theme);
         menu.setTheme(theme);
         invalidate();
     }
@@ -454,6 +484,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         for (Layer l : layers) l.setSize(w, h);
         allApps.layout(panel.panelWidth(), panel.panelHeight(), h / 1080f);
+        inputs.layout(panel.panelWidth(), panel.panelHeight(), h / 1080f);
     }
 
     @Override

@@ -9,7 +9,7 @@ public final class SnapshotCodec {
     static final int CONFIG_MAGIC = 0x464C4346; // FLCF
     static final int CACHE_MAGIC = 0x464C4341;  // FLCA
     public static final int CONFIG_VERSION = 1;
-    public static final int CACHE_VERSION = 2;
+    public static final int CACHE_VERSION = 3;
 
     private SnapshotCodec() {}
 
@@ -66,6 +66,7 @@ public final class SnapshotCodec {
         out.writeUTF(c.locale);
         out.writeInt(c.dateDay);
         out.writeUTF(c.dateText);
+        out.writeBoolean(c.hasInputs);
         out.writeShort(c.apps.size());
         for (AppEntry e : c.apps) {
             out.writeUTF(e.component);
@@ -95,6 +96,7 @@ public final class SnapshotCodec {
             if (!c.locale.equals(locale)) return null;
             c.dateDay = in.readInt();
             c.dateText = in.readUTF();
+            c.hasInputs = in.readBoolean();
             int n = in.readUnsignedShort();
             for (int i = 0; i < n; i++) {
                 String comp = in.readUTF();

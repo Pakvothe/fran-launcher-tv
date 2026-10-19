@@ -85,6 +85,22 @@ public class PanelListTest {
     }
 
     @Test
+    public void panelDeFilasRecorreEligeYCierra() {
+        FocusModel m = new FocusModel();
+        m.openRows(3);
+        assertEquals(NONE, m.onKey(UP));
+        assertEquals(ROW_FOCUS, m.onKey(DOWN));
+        assertEquals(ROW_FOCUS, m.onKey(DOWN));
+        assertEquals(NONE, m.onKey(DOWN));
+        assertEquals(ROW_PICK, m.onKey(OK));
+        assertEquals(PANEL_ROWS, m.state());
+        assertEquals(CLOSE_PANEL, m.onKey(LEFT));
+        assertEquals(SHELF, m.state());
+        m.openRows(0);
+        assertEquals(NONE, m.onKey(OK));
+    }
+
+    @Test
     public void listaVaciaNoHaceNada() {
         FocusModel m = new FocusModel();
         m.setList(new int[0]);

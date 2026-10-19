@@ -14,7 +14,8 @@ public final class FocusModel {
     // Efectos
     public static final int NONE = 0, FOCUS = 1, LAUNCH = 2, OPEN_ALL = 3, OPEN_INPUTS = 4, OPEN_SETTINGS = 5,
         CLOSE_PANEL = 6, LIST_FOCUS = 7, LIST_LAUNCH = 8, INDEX_ENTER = 9, INDEX_FOCUS = 10, INDEX_EXIT = 11,
-        OPEN_MENU = 12, MENU_FOCUS = 13, MENU_PICK = 14, CLOSE_MENU = 15, MOVE_STEP = 16, MOVE_DROP = 17;
+        OPEN_MENU = 12, MENU_FOCUS = 13, MENU_PICK = 14, CLOSE_MENU = 15, MOVE_STEP = 16, MOVE_DROP = 17,
+        ROW_FOCUS = 18, ROW_PICK = 19;
     // Botones redondos al final de la fila
     public static final int BUTTON_ALL = 0, BUTTON_INPUTS = 1, BUTTON_SETTINGS = 2;
 
@@ -25,6 +26,8 @@ public final class FocusModel {
     private int[] letterOf = new int[0];
     // Menú de pulsación larga: opción con foco, cantidad y desde qué estado se abrió.
     private int menuIndex, menuSize, menuFrom;
+    // Paneles de filas (Entradas, Ajustes).
+    private int rowIndex, rowCount;
     private int favorites;
     private boolean hasInputs;
 
@@ -87,6 +90,22 @@ public final class FocusModel {
         listIndex = 0;
     }
 
+    public int rowIndex() {
+        return rowIndex;
+    }
+
+    /** Abre un panel de filas (Entradas o Ajustes) con el foco en la primera. */
+    public void openRows(int count) {
+        state = PANEL_ROWS;
+        rowCount = count;
+        rowIndex = 0;
+    }
+
+    public void setRowCount(int count) {
+        rowCount = count;
+        rowIndex = Math.max(0, Math.min(rowIndex, count - 1));
+    }
+
     public void closePanel() {
         state = SHELF;
     }
@@ -128,6 +147,30 @@ public final class FocusModel {
                 return list(key);
             case PANEL_INDEX:
                 return index(key);
+            case PANEL_ROWS:
+                return rows(key);
+            default:
+                return NONE;
+        }
+    }
+
+    private int rows(int key) {
+        switch (key) {
+            case UP:
+                if (rowIndex == 0) return NONE;
+                rowIndex--;
+                return ROW_FOCUS;
+            case DOWN:
+                if (rowIndex >= rowCount - 1) return NONE;
+                rowIndex++;
+                return ROW_FOCUS;
+            case OK:
+                return rowCount == 0 ? NONE : ROW_PICK;
+            case LEFT:
+            case BACK:
+            case HOME:
+                state = SHELF;
+                return CLOSE_PANEL;
             default:
                 return NONE;
         }
