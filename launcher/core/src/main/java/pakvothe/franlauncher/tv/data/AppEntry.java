@@ -11,13 +11,16 @@ public final class AppEntry {
     public final int banner;
     /** Celda en el atlas de íconos, o -1. */
     public final int icon;
+    /** lastUpdateTime del paquete: si cambia, se regeneran su banner y su ícono. */
+    public final long stamp;
 
-    public AppEntry(String component, String label, int color, int banner, int icon) {
+    public AppEntry(String component, String label, int color, int banner, int icon, long stamp) {
         this.component = component;
         this.label = label;
         this.color = color;
         this.banner = banner;
         this.icon = icon;
+        this.stamp = stamp;
     }
 
     public String packageName() {
@@ -30,7 +33,7 @@ public final class AppEntry {
         if (!(o instanceof AppEntry)) return false;
         AppEntry e = (AppEntry) o;
         return component.equals(e.component) && label.equals(e.label) && color == e.color
-            && banner == e.banner && icon == e.icon;
+            && banner == e.banner && icon == e.icon && stamp == e.stamp;
     }
 
     @Override

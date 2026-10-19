@@ -7,10 +7,16 @@ import android.util.Log;
 import android.view.View;
 
 import java.util.Calendar;
+import java.util.Locale;
 
 import pakvothe.franlauncher.tv.anim.Animator;
 import pakvothe.franlauncher.tv.anim.ClockTicker;
 import pakvothe.franlauncher.tv.anim.SlowTicker;
+import pakvothe.franlauncher.tv.data.AppRepository;
+import pakvothe.franlauncher.tv.data.Atlas;
+import pakvothe.franlauncher.tv.data.Cache;
+import pakvothe.franlauncher.tv.data.Config;
+import pakvothe.franlauncher.tv.data.Snapshot;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
 import pakvothe.franlauncher.tv.scene.Layer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
@@ -19,7 +25,7 @@ import pakvothe.franlauncher.tv.theme.Theme;
 import pakvothe.franlauncher.tv.util.Trace;
 
 /** La única View. Dueña del árbol de nodos: onDraw solo hace drawRenderNode de cada capa. */
-public final class Stage extends View implements SlowTicker.Listener, ClockTicker.Listener {
+public final class Stage extends View implements SlowTicker.Listener, ClockTicker.Listener, AppRepository.Listener {
     private final long createdAt;
     private boolean firstFrameLogged;
     final Animator animator = new Animator(this);
@@ -31,16 +37,39 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     private int lastMinute = -1;
     /** Con los orbes andando, el segundo nuevo viaja en el próximo frame de orbe (≤ 200 ms) en vez de pedir uno propio. */
     private long clockPendingSince = -1;
+    private final int screenW, screenH, density;
+    private final Snapshot.Geometry geometry;
+    final Config config;
+    Cache cache;
+    Atlas banners, icons;
+    final AppRepository repo;
+    private boolean synced;
+    private final Runnable firstSync = this::syncApps;
     private final Calendar calendar = Calendar.getInstance();
     private Theme theme;
     private int themeMode = Theme.MODE_AUTO;
     private boolean animatedBackground = true;
     private boolean started;
 
-    public Stage(Context context, long createdAt) {
+    public Stage(Context context, long createdAt, int w, int h, int density) {
         super(context);
         this.createdAt = createdAt;
+        screenW = w;
+        screenH = h;
+        this.density = density;
+        geometry = new Snapshot.Geometry(h);
+        Snapshot snap = Snapshot.read(context, density, w, h, localeTag(), geometry);
+        config = snap.config;
+        cache = snap.cache;
+        banners = snap.banners;
+        icons = snap.icons;
+        repo = new AppRepository(context, this);
+        themeMode = config.theme;
+        animatedBackground = config.animatedBackground;
         clock = new ClockLayer(context);
+        clock.setSecondsMode(config.seconds);
+        clock.setHourFormat(config.hourFormat);
+        if (cache != null) clock.seedDate(cache.dateDay, cache.dateText);
         layers = new Layer[] {sky, clock};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
@@ -53,6 +82,28 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         refreshTheme(false);
         clockTicker.start();
         updateSlowTicker();
+    }
+
+    void onDestroy() {
+        removeCallbacks(firstSync);
+        repo.quit();
+    }
+
+    private static String localeTag() {
+        return Locale.getDefault().toLanguageTag();
+    }
+
+    /** Fuera del camino crítico: se llama después del primer frame y al volver de otra app. */
+    void syncApps() {
+        repo.sync(cache, banners, icons, geometry, density, screenW, screenH, localeTag(), clock.dateDay(), clock.dateText());
+    }
+
+    @Override
+    public void onApps(Cache c, Atlas b, Atlas i) {
+        cache = c;
+        banners = b;
+        icons = i;
+        invalidate();
     }
 
     void onStop() {
@@ -143,6 +194,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
             Trace.end();
             // Una sola línea por arranque: bench.sh la usa para onCreate → primer frame.
             Log.i("FranLauncher", "firstframe=" + (SystemClock.uptimeMillis() - createdAt));
+            post(firstSync);
         }
     }
 }

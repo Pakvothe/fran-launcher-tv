@@ -71,6 +71,22 @@ public final class ClockLayer extends Layer {
         faceDirty = true;
     }
 
+    /** Fecha cacheada en el snapshot: evita inicializar ICU en el primer frame. */
+    public void seedDate(int day, String text) {
+        if (day >= 0 && !text.isEmpty()) {
+            dayKey = day;
+            dateText = text;
+        }
+    }
+
+    public int dateDay() {
+        return dayKey;
+    }
+
+    public String dateText() {
+        return dateText;
+    }
+
     /** El locale o el huso cambiaron: rehacer la fecha. */
     public void resetDate() {
         zone = TimeZone.getDefault();

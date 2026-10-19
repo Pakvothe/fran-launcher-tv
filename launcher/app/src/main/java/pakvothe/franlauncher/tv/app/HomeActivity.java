@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
+import android.util.DisplayMetrics;
 
 /** Ciclo de vida y despacho de teclas. Sin lógica de UI. */
 public final class HomeActivity extends Activity {
@@ -13,7 +14,9 @@ public final class HomeActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         long t0 = SystemClock.uptimeMillis();
         super.onCreate(null);
-        stage = new Stage(this, t0);
+        DisplayMetrics dm = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getRealMetrics(dm);
+        stage = new Stage(this, t0, dm.widthPixels, dm.heightPixels, dm.densityDpi);
         setContentView(stage);
         // El Stage es opaco: el fondo de la ventana sería una capa de overdraw de más.
         getWindow().setBackgroundDrawable(null);
@@ -36,6 +39,12 @@ public final class HomeActivity extends Activity {
     protected void onStop() {
         stage.onStop();
         super.onStop();
+    }
+
+    @Override
+    protected void onDestroy() {
+        stage.onDestroy();
+        super.onDestroy();
     }
 
     /** Para medir con bench.sh: am start ... --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2. */

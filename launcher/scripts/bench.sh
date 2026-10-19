@@ -141,6 +141,8 @@ meminfo() {
     s && /TOTAL:/       {t=$2; print j, n, c, g, t; exit}'
 }
 # El runtime crece ~1,2 MB una sola vez en los primeros ~30 s tras abrir: la ventana arranca después.
+# Y el primer dumpsys en el proceso también asigna: una lectura descartable antes.
+meminfo >/dev/null
 sleep 30
 read -r J0 N0 C0 G0 T0 <<<"$(meminfo)"
 PID="$(sh pidof "$PKG")"

@@ -19,9 +19,9 @@ public class SnapshotCodecTest {
         c.density = 320; c.width = 1920; c.height = 1080;
         c.bannerCols = 4; c.bannerCount = 2; c.iconCols = 16; c.iconCount = 3;
         c.locale = "es-AR"; c.dateDay = 811_291; c.dateText = "Domingo, 18 de octubre";
-        c.apps.add(new AppEntry("com.netflix/.Main", "Netflix", 0xFFE50914, 0, 0));
-        c.apps.add(new AppEntry("com.yt/.Tv", "YouTube", 0xFFFF0000, 1, 1));
-        c.apps.add(new AppEntry("com.x/.A", "Ñandú ü", 0xFF123456, -1, 2));
+        c.apps.add(new AppEntry("com.netflix/.Main", "Netflix", 0xFFE50914, 0, 0, 42L));
+        c.apps.add(new AppEntry("com.yt/.Tv", "YouTube", 0xFFFF0000, 1, 1, 42L));
+        c.apps.add(new AppEntry("com.x/.A", "Ñandú ü", 0xFF123456, -1, 2, 42L));
         return c;
     }
 
@@ -100,7 +100,7 @@ public class SnapshotCodecTest {
     @Test
     public void cacheConCeldaFueraDelAtlasEsNull() throws IOException {
         Cache c = cache();
-        c.apps.add(new AppEntry("z/.Z", "Z", 0, 7, -1));
+        c.apps.add(new AppEntry("z/.Z", "Z", 0, 7, -1, 42L));
         assertNull(SnapshotCodec.readCache(in(bytes(c)), 320, 1920, 1080, "es-AR"));
     }
 }

@@ -73,6 +73,7 @@ public final class SnapshotCodec {
             out.writeInt(e.color);
             out.writeShort(e.banner);
             out.writeShort(e.icon);
+            out.writeLong(e.stamp);
         }
     }
 
@@ -100,8 +101,9 @@ public final class SnapshotCodec {
                 int color = in.readInt();
                 int banner = in.readShort();
                 int icon = in.readShort();
+                long stamp = in.readLong();
                 if ((banner >= c.bannerCount) || (icon >= c.iconCount)) return null;
-                c.apps.add(new AppEntry(comp, label, color, banner, icon));
+                c.apps.add(new AppEntry(comp, label, color, banner, icon, stamp));
             }
             return c;
         } catch (IOException | RuntimeException e) {
