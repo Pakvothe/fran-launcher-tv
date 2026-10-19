@@ -30,6 +30,13 @@ public class PanelListTest {
     }
 
     @Test
+    public void ordenSinIcuComoUnCollatorPrimario() {
+        String[] l = {"Zoom", "ápex", "Amazon", "Ñandú", "netflix", "Éter", "2048", "abc"};
+        java.util.Arrays.sort(l, pakvothe.franlauncher.tv.data.Fold::compare);
+        assertEquals("[2048, abc, Amazon, ápex, Éter, Ñandú, netflix, Zoom]", java.util.Arrays.toString(l));
+    }
+
+    @Test
     public void recorreLaListaSinDarLaVuelta() {
         FocusModel m = open();
         assertEquals(PANEL_LIST, m.state());

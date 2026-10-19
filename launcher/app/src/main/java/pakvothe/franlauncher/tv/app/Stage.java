@@ -6,7 +6,6 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 
-import java.text.Collator;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Calendar;
@@ -217,9 +216,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     private void refreshAllApps() {
         sorted.clear();
         if (cache != null) sorted.addAll(cache.apps);
-        Collator col = Collator.getInstance();
-        col.setStrength(Collator.PRIMARY);
-        sorted.sort((a, b) -> col.compare(a.label, b.label));
+        // Sin Collator: sus tablas ICU suman ~1 MB nativo al abrir la lista.
+        sorted.sort((a, b) -> pakvothe.franlauncher.tv.data.Fold.compare(a.label, b.label));
         int[] letters = new int[sorted.size()];
         for (int i = 0; i < letters.length; i++) letters[i] = Letters.bucket(sorted.get(i).label);
         focus.setList(letters);
@@ -354,6 +352,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     private void openPanel(Panel p) {
         panel.show(p);
+        clock.beginScale(400);
         animator.animate(clock.node, Animator.SCALE, 0.78f, 400);
         animator.animate(clock.node, Animator.TX, (getWidth() - 796 * getHeight() / 1080f) / 2f - getWidth() / 2f, 400);
         animator.animate(clock.node, Animator.TY, clock.fullScreenShiftY(), 800);
@@ -367,6 +366,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         if (panel.current() == inputs) inputsRepo.watch(null);
         panel.hide();
         int d = animate ? 400 : 0;
+        clock.beginScale(d);
         animator.animate(clock.node, Animator.SCALE, 1f, d);
         animator.animate(clock.node, Animator.TX, 0f, d);
         animator.animate(clock.node, Animator.TY, 0f, d);
@@ -445,6 +445,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         float s = getHeight() / 1080f;
         animator.animate(shelf.node, Animator.ALPHA, 0f, 500);
         animator.animate(shelf.node, Animator.TY, 32 * s, 500);
+        clock.beginScale(800);
         animator.animate(clock.node, Animator.SCALE, 1.06f, 800);
         animator.animate(clock.node, Animator.TY, clock.fullScreenShiftY(), 800);
         // Noche: 38% en cualquier tema (un fondo claro en una pieza oscura encandila). Si no, 15% con protección OLED.
@@ -464,6 +465,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         int d = animate ? 300 : 0;
         animator.animate(shelf.node, Animator.ALPHA, 1f, d);
         animator.animate(shelf.node, Animator.TY, 0f, d);
+        clock.beginScale(d);
         animator.animate(clock.node, Animator.SCALE, 1f, d);
         animator.animate(clock.node, Animator.TX, 0f, d);
         animator.animate(clock.node, Animator.TY, 0f, d);

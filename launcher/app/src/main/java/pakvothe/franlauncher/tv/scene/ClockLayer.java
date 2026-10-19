@@ -6,6 +6,9 @@ import android.graphics.RecordingCanvas;
 import android.graphics.RenderNode;
 import android.text.format.DateFormat;
 
+import android.os.Handler;
+import android.os.Looper;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
@@ -36,6 +39,10 @@ public final class ClockLayer extends Layer {
     private int secondsMode = SECONDS_NUMBER, hourFormat = HOUR_SYSTEM;
     private boolean faceDirty = true, system24;
     private final Recorder faceRecorder = this::recordFace;
+    /** Caja de la cara en pantalla: bounds justos para que la capa temporal no sea de pantalla completa. */
+    private float faceL, faceT;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable layerOff = () -> face.setUseCompositingLayer(false, null);
     /** Centro del bloque (hora + fecha) y su altura, en px reales: el Stage los usa para ubicar lo demás. */
     public float centerX, centerY, dateBottom;
 
@@ -108,7 +115,9 @@ public final class ClockLayer extends Layer {
         centerY = 370 * s;
         node.setPivotX(centerX);
         node.setPivotY(centerY);
-        face.setPosition(0, 0, w, h);
+        faceL = centerX - 700 * s;
+        faceT = centerY - 240 * s;
+        face.setPosition(Math.round(faceL), Math.round(faceT), Math.round(centerX + 700 * s), Math.round(centerY + 240 * s));
         faceDirty = true;
     }
 
@@ -158,7 +167,7 @@ public final class ClockLayer extends Layer {
     protected void prepare() {
         if (!faceDirty || theme == null || w == 0) return;
         faceDirty = false;
-        record(face, w, h, faceRecorder);
+        record(face, Math.round(1400 * s), Math.round(480 * s), faceRecorder);
     }
 
     /**
@@ -167,6 +176,7 @@ public final class ClockLayer extends Layer {
      * en centerY (la franja de 740 px sobre la fila; en ambiente y con panel, el Stage lo baja al centro real).
      */
     private void recordFace(RecordingCanvas c) {
+        c.translate(-faceL, -faceT);
         float tw = time.measureText(hhmm, 0, hhmmLen);
         float colW = secondsMode == SECONDS_NUMBER || !ampmText.isEmpty() ? 96 * s : 0;
         float gap = colW > 0 ? 18 * s : 0;
@@ -199,6 +209,16 @@ public final class ClockLayer extends Layer {
         float dw = date.measureText(dateText);
         c.drawText(dateText, centerX - dw / 2, y - dm.ascent, date);
         dateBottom = y + dateBox;
+    }
+
+    /**
+     * Mientras el reloj cambia de escala (panel 0,78, ambiente 1,06), la cara es una capa: se escala la textura
+     * en vez de re-rasterizar los glifos de 240 px en cada tamaño intermedio (medido: +1,2 MB nativos por animación).
+     */
+    public void beginScale(int ms) {
+        handler.removeCallbacks(layerOff);
+        face.setUseCompositingLayer(true, null);
+        handler.postDelayed(layerOff, ms + 50);
     }
 
     /** Cuánto baja el reloj para quedar en el centro de la pantalla (ambiente y panel abierto). */
