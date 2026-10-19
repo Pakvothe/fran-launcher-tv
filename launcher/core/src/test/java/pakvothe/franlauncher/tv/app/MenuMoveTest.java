@@ -70,4 +70,21 @@ public class MenuMoveTest {
         m.startMoving();
         assertEquals(MOVE_DROP, m.onKey(BACK));
     }
+
+    @Test
+    public void ambienteSoloDesdeElInicioYLaPrimeraTeclaSoloDespierta() {
+        FocusModel m = new FocusModel();
+        m.setShelf(3, false);
+        m.focusShelf(2);
+        assertEquals(true, m.enterAmbient());
+        assertEquals(AMBIENT, m.state());
+        assertEquals(WAKE, m.onKey(OK));
+        assertEquals(SHELF, m.state());
+        assertEquals(2, m.index());
+        m.enterAmbient();
+        assertEquals(WAKE_HOME, m.onKey(HOME));
+        assertEquals(0, m.index());
+        m.openMenu(2);
+        assertEquals(false, m.enterAmbient());
+    }
 }

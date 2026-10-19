@@ -13,23 +13,38 @@ public final class Icons {
     public static void draw(Canvas c, int icon, float cx, float cy, float size, Paint fill, Paint stroke) {
         float u = size / 24f;
         switch (icon) {
+            // GRID, INPUTS y SETTINGS: los trazos del mockup (viewBox 24), mapeados a (cx, cy, size).
             case GRID:
-                for (int i = -1; i <= 1; i++)
-                    for (int j = -1; j <= 1; j++) c.drawCircle(cx + i * 7 * u, cy + j * 7 * u, 2.2f * u, fill);
-                break;
-            case INPUTS:
-                stroke.setStrokeWidth(2 * u);
-                c.drawRoundRect(cx - 10 * u, cy - 7 * u, cx + 10 * u, cy + 6 * u, 2 * u, 2 * u, stroke);
-                c.drawLine(cx - 5 * u, cy + 10 * u, cx + 5 * u, cy + 10 * u, stroke);
-                break;
-            case SETTINGS:
-                stroke.setStrokeWidth(2 * u);
-                for (int i = -1; i <= 1; i++) {
-                    float y = cy + i * 6 * u, k = cx + (i == 0 ? 4 : -4) * u;
-                    c.drawLine(cx - 10 * u, y, cx + 10 * u, y, stroke);
-                    c.drawCircle(k, y, 2.6f * u, fill);
+                stroke.setStrokeWidth(1.8f * u);
+                for (int k = 0; k < 3; k++) {
+                    float y = cy + (6 + 6 * k - 12) * u;
+                    c.drawLine(cx - 4 * u, y, cx + 8 * u, y, stroke);
+                    // r 0.9 relleno + trazo de 1.8 heredado en el SVG = radio visible 1.8.
+                    c.drawCircle(cx - 8 * u, y, 1.8f * u, fill);
                 }
                 break;
+            case INPUTS: {
+                stroke.setStrokeWidth(1.6f * u);
+                Path p = new Path();
+                p.moveTo(cx - 9 * u, cy - 4 * u);
+                p.lineTo(cx + 9 * u, cy - 4 * u);
+                p.lineTo(cx + 9 * u, cy + 1 * u);
+                p.lineTo(cx + 6 * u, cy + 4 * u);
+                p.lineTo(cx - 6 * u, cy + 4 * u);
+                p.lineTo(cx - 9 * u, cy + 1 * u);
+                p.close();
+                c.drawPath(p, stroke);
+                c.drawLine(cx - 5 * u, cy - 1 * u, cx + 5 * u, cy - 1 * u, stroke);
+                break;
+            }
+            case SETTINGS: {
+                stroke.setStrokeWidth(1.6f * u);
+                c.drawCircle(cx, cy, 3 * u, stroke);
+                float[][] rays = {{0, -10, 0, -7}, {0, 7, 0, 10}, {-7.8f, -7.8f, -5.7f, -5.7f}, {5.7f, 5.7f, 7.8f, 7.8f},
+                    {-10, 0, -7, 0}, {7, 0, 10, 0}, {-7.8f, 7.8f, -5.7f, 5.7f}, {5.7f, -5.7f, 7.8f, -7.8f}};
+                for (float[] r : rays) c.drawLine(cx + r[0] * u, cy + r[1] * u, cx + r[2] * u, cy + r[3] * u, stroke);
+                break;
+            }
             case BACK: {
                 stroke.setStrokeWidth(2.2f * u);
                 Path p = new Path();

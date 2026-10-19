@@ -43,6 +43,7 @@ public final class ClockLayer extends Layer {
         super("clock");
         this.context = context;
         time = Typography.paint(context, 240, 200, true);
+        time.setLetterSpacing(-6f / 240f);
         secs = Typography.paint(context, 76, 300, true);
         date = Typography.paint(context, 32, 300, false);
         ampm = Typography.paint(context, 30, 300, false);
@@ -104,7 +105,7 @@ public final class ClockLayer extends Layer {
         ampm.setTextSize(30 * s);
         line.setStrokeWidth(0);
         centerX = w / 2f;
-        centerY = 430 * s;
+        centerY = 370 * s;
         node.setPivotX(centerX);
         node.setPivotY(centerY);
         face.setPosition(0, 0, w, h);
@@ -160,32 +161,49 @@ public final class ClockLayer extends Layer {
         record(face, w, h, faceRecorder);
     }
 
+    /**
+     * Igual que el mockup: una fila [HH:mm | columna de 96 px con a. m./p. m. y segundos] alineada por la línea
+     * base y centrada como bloque; debajo, la línea del segundero (si va) y la fecha. El bloque entero se centra
+     * en centerY (la franja de 740 px sobre la fila; en ambiente y con panel, el Stage lo baja al centro real).
+     */
     private void recordFace(RecordingCanvas c) {
         float tw = time.measureText(hhmm, 0, hhmmLen);
-        float baseline = centerY + 70 * s;
+        float colW = secondsMode == SECONDS_NUMBER || !ampmText.isEmpty() ? 96 * s : 0;
+        float gap = colW > 0 ? 18 * s : 0;
+        Paint.FontMetrics tm = time.getFontMetrics(), dm = date.getFontMetrics();
+        float timeBox = 240 * s;                       // line-height: 1
+        float lineBox = secondsMode == SECONDS_LINE ? (18 + 2 + 10) * s : 0;
+        float dateBox = dm.descent - dm.ascent;
+        float blockH = timeBox + 4 * s + lineBox + dateBox;
+        float top = centerY - blockH / 2;
+        // Línea base de la hora dentro de su caja de 240 px.
+        float baseline = top + timeBox / 2 - (tm.ascent + tm.descent) / 2;
+        float x = centerX - (tw + gap + colW) / 2;
+        c.drawText(hhmm, 0, hhmmLen, x, baseline, time);
+        float colX = x + tw + gap;
         if (secondsMode == SECONDS_NUMBER) {
-            float gap = 18 * s;
-            float sw = secs.measureText(ss, 0, 2);
-            float x = centerX - (tw + gap + sw) / 2;
-            c.drawText(hhmm, 0, hhmmLen, x, baseline, time);
-            c.drawText(ss, 0, 2, x + tw + gap, baseline, secs);
-            if (!ampmText.isEmpty()) c.drawText(ampmText, x + tw + gap, baseline - 90 * s, ampm);
-        } else {
-            float x = centerX - tw / 2;
-            c.drawText(hhmm, 0, hhmmLen, x, baseline, time);
-            if (!ampmText.isEmpty()) c.drawText(ampmText, x + tw + 14 * s, baseline - 150 * s, ampm);
-            if (secondsMode == SECONDS_LINE) {
-                float lw = 560 * s, lx = centerX - lw / 2, ly = baseline + 34 * s, lh = 2 * s;
-                line.setColor(theme.roundBg);
-                c.drawRect(lx, ly, lx + lw, ly + lh, line);
-                line.setColor(theme.seconds);
-                c.drawRect(lx, ly, lx + lw * (second / 60f), ly + lh, line);
-            }
+            c.drawText(ss, 0, 2, colX, baseline, secs);
+            if (!ampmText.isEmpty()) c.drawText(ampmText, colX, baseline - 76 * s * 0.78f - 12 * s, ampm);
+        } else if (!ampmText.isEmpty()) {
+            c.drawText(ampmText, colX, baseline, ampm);
         }
-        float dy = baseline + (secondsMode == SECONDS_LINE ? 96 : 76) * s;
+        float y = top + timeBox + 4 * s;
+        if (secondsMode == SECONDS_LINE) {
+            float lw = 560 * s, lx = centerX - lw / 2, ly = y + 18 * s, lh = 2 * s;
+            line.setColor(theme.roundBg);
+            c.drawRect(lx, ly, lx + lw, ly + lh, line);
+            line.setColor(theme.seconds);
+            c.drawRect(lx, ly, lx + lw * (second / 60f), ly + lh, line);
+            y += lineBox;
+        }
         float dw = date.measureText(dateText);
-        c.drawText(dateText, centerX - dw / 2, dy, date);
-        dateBottom = dy + 14 * s;
+        c.drawText(dateText, centerX - dw / 2, y - dm.ascent, date);
+        dateBottom = y + dateBox;
+    }
+
+    /** Cuánto baja el reloj para quedar en el centro de la pantalla (ambiente y panel abierto). */
+    public float fullScreenShiftY() {
+        return h / 2f - centerY;
     }
 
     @Override

@@ -207,7 +207,8 @@ public final class ShelfLayer extends Layer {
                 iconFill.setColor(theme.text);
                 iconStroke.setColor(theme.text);
                 Icons.draw(c, it.button == FocusModel.BUTTON_ALL ? Icons.GRID
-                    : it.button == FocusModel.BUTTON_INPUTS ? Icons.INPUTS : Icons.SETTINGS, iw / 2, ih / 2, 30 * s,
+                    : it.button == FocusModel.BUTTON_INPUTS ? Icons.INPUTS : Icons.SETTINGS, iw / 2, ih / 2,
+                    (it.button == FocusModel.BUTTON_INPUTS ? 26 : 24) * s,
                     iconFill, iconStroke);
             }
         });

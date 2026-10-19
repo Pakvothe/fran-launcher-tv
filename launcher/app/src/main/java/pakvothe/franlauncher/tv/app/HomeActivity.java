@@ -88,5 +88,6 @@ public final class HomeActivity extends Activity {
         if (i.hasExtra("fl.secs")) stage.setSecondsMode(i.getIntExtra("fl.secs", 0));
         if (i.hasExtra("fl.hour")) stage.setHourFormat(i.getIntExtra("fl.hour", 0));
         if ("all".equals(i.getStringExtra("fl.open"))) stage.onKey(FocusModel.HOME_OPEN_ALL);
+        if (i.hasExtra("fl.ambient")) stage.config.ambient = i.getIntExtra("fl.ambient", 0);
     }
 }

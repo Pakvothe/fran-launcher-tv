@@ -15,7 +15,7 @@ public final class FocusModel {
     public static final int NONE = 0, FOCUS = 1, LAUNCH = 2, OPEN_ALL = 3, OPEN_INPUTS = 4, OPEN_SETTINGS = 5,
         CLOSE_PANEL = 6, LIST_FOCUS = 7, LIST_LAUNCH = 8, INDEX_ENTER = 9, INDEX_FOCUS = 10, INDEX_EXIT = 11,
         OPEN_MENU = 12, MENU_FOCUS = 13, MENU_PICK = 14, CLOSE_MENU = 15, MOVE_STEP = 16, MOVE_DROP = 17,
-        ROW_FOCUS = 18, ROW_PICK = 19;
+        ROW_FOCUS = 18, ROW_PICK = 19, WAKE = 20, WAKE_HOME = 21;
     // Botones redondos al final de la fila
     public static final int BUTTON_ALL = 0, BUTTON_INPUTS = 1, BUTTON_SETTINGS = 2;
 
@@ -135,12 +135,27 @@ public final class FocusModel {
         if (state == MENU) state = menuFrom;
     }
 
+    /** Solo desde el inicio limpio: no con panel, menú ni Mover. */
+    public boolean enterAmbient() {
+        if (state != SHELF) return false;
+        state = AMBIENT;
+        return true;
+    }
+
     public void startMoving() {
         state = MOVING;
     }
 
     public int onKey(int key) {
         switch (state) {
+            case AMBIENT:
+                // La primera tecla solo despierta. Home además lleva el foco a la primera favorita.
+                state = SHELF;
+                if (key == HOME) {
+                    index = 0;
+                    return WAKE_HOME;
+                }
+                return WAKE;
             case MENU:
                 return menu(key);
             case MOVING:

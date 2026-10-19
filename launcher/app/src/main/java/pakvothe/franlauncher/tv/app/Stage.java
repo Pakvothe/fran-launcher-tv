@@ -28,6 +28,7 @@ import pakvothe.franlauncher.tv.data.Letters;
 import pakvothe.franlauncher.tv.data.Snapshot;
 import pakvothe.franlauncher.tv.scene.AppListPanel;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
+import pakvothe.franlauncher.tv.scene.DimLayer;
 import pakvothe.franlauncher.tv.scene.PanelLayer;
 import pakvothe.franlauncher.tv.scene.InputsPanel;
 import pakvothe.franlauncher.tv.scene.Layer;
@@ -39,6 +40,7 @@ import pakvothe.franlauncher.tv.tv.InputsRepository;
 import pakvothe.franlauncher.tv.scene.MenuLayer;
 import pakvothe.franlauncher.tv.scene.ShelfLayer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
+import pakvothe.franlauncher.tv.theme.OledShift;
 import pakvothe.franlauncher.tv.theme.PhaseResolver;
 import pakvothe.franlauncher.tv.theme.Theme;
 import pakvothe.franlauncher.tv.util.Launch;
@@ -57,6 +59,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final PanelLayer panel;
     final AppListPanel allApps;
     final MenuLayer menu;
+    final DimLayer dim = new DimLayer();
+    private final Runnable ambientTimer = this::enterAmbient;
     final InputsRepository inputsRepo;
     final InputsPanel inputs;
     /** Se crean al abrirse por primera vez: no están en el camino crítico. */
@@ -117,7 +121,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         menu = new MenuLayer(context, animator);
         inputsRepo = new InputsRepository(context);
         inputs = new InputsPanel(context, animator, inputsRepo);
-        layers = new Layer[] {sky, clock, shelf, panel, menu};
+        layers = new Layer[] {sky, clock, shelf, panel, menu, dim};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
         clock.setTheme(theme);
@@ -135,6 +139,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         started = true;
         // Al volver de otra app (o de desinstalar): resincronizar. En el arranque lo hace el primer frame.
         if (firstFrameLogged) syncApps();
+        armAmbient();
         refreshTheme(false);
         clockTicker.start();
         updateSlowTicker();
@@ -349,9 +354,9 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     private void openPanel(Panel p) {
         panel.show(p);
-        float left = panel.left();
         animator.animate(clock.node, Animator.SCALE, 0.78f, 400);
-        animator.animate(clock.node, Animator.TX, left / 2 - getWidth() / 2f, 400);
+        animator.animate(clock.node, Animator.TX, (getWidth() - 796 * getHeight() / 1080f) / 2f - getWidth() / 2f, 400);
+        animator.animate(clock.node, Animator.TY, clock.fullScreenShiftY(), 800);
         animator.animate(shelf.node, Animator.ALPHA, 0f, 300);
         updateSlowTicker();
     }
@@ -364,6 +369,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         int d = animate ? 400 : 0;
         animator.animate(clock.node, Animator.SCALE, 1f, d);
         animator.animate(clock.node, Animator.TX, 0f, d);
+        animator.animate(clock.node, Animator.TY, 0f, d);
         animator.animate(shelf.node, Animator.ALPHA, 1f, animate ? 300 : 0);
         if (!animate) animator.cancelAll();
         updateSlowTicker();
@@ -428,9 +434,53 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         }
     }
 
+    /** Sin polling: el timer se re-arma con cada tecla y al volver al inicio. */
+    private void armAmbient() {
+        removeCallbacks(ambientTimer);
+        if (started) postDelayed(ambientTimer, config.ambientSeconds() * 1000L);
+    }
+
+    private void enterAmbient() {
+        if (!started || !focus.enterAmbient()) return;
+        float s = getHeight() / 1080f;
+        animator.animate(shelf.node, Animator.ALPHA, 0f, 500);
+        animator.animate(shelf.node, Animator.TY, 32 * s, 500);
+        animator.animate(clock.node, Animator.SCALE, 1.06f, 800);
+        animator.animate(clock.node, Animator.TY, clock.fullScreenShiftY(), 800);
+        // Noche: 38% en cualquier tema (un fondo claro en una pieza oscura encandila). Si no, 15% con protección OLED.
+        float target = theme.phase == PhaseResolver.NIGHT ? 0.38f : config.oledProtection ? 0.15f : 0f;
+        animator.animate(dim.node, Animator.ALPHA, target, 500);
+        shiftClock(lastMinute, 800);
+    }
+
+    private void shiftClock(int minute, int ms) {
+        if (!config.oledProtection) return;
+        float s = getHeight() / 1080f;
+        animator.animate(clock.node, Animator.TX, OledShift.x(minute) * s, ms);
+        animator.animate(clock.node, Animator.TY, clock.fullScreenShiftY() + OledShift.y(minute) * s, ms);
+    }
+
+    private void exitAmbient(boolean animate) {
+        int d = animate ? 300 : 0;
+        animator.animate(shelf.node, Animator.ALPHA, 1f, d);
+        animator.animate(shelf.node, Animator.TY, 0f, d);
+        animator.animate(clock.node, Animator.SCALE, 1f, d);
+        animator.animate(clock.node, Animator.TX, 0f, d);
+        animator.animate(clock.node, Animator.TY, 0f, d);
+        animator.animate(dim.node, Animator.ALPHA, 0f, d);
+    }
+
     /** Tecla lógica del InputRouter. */
     void onKey(int key) {
+        armAmbient();
         switch (focus.onKey(key)) {
+            case FocusModel.WAKE:
+                exitAmbient(true);
+                break;
+            case FocusModel.WAKE_HOME:
+                exitAmbient(true);
+                shelf.setFocus(0, true);
+                break;
             case FocusModel.OPEN_ALL:
                 refreshAllApps();
                 focus.openList();
@@ -538,6 +588,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     void onStop() {
         started = false;
+        removeCallbacks(ambientTimer);
+        if (focus.state() == FocusModel.AMBIENT) {
+            focus.onKey(FocusModel.BACK);
+            exitAmbient(false);
+        }
         if (menu.isOpen()) {
             menu.hide(false);
             focus.closeMenu();
@@ -609,6 +664,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         if (minute != lastMinute) {
             lastMinute = minute;
             refreshTheme(true);
+            if (focus.state() == FocusModel.AMBIENT) shiftClock(minute, 800);
         }
     }
 
