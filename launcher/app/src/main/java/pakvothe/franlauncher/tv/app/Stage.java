@@ -30,7 +30,9 @@ import pakvothe.franlauncher.tv.scene.ClockLayer;
 import pakvothe.franlauncher.tv.scene.DimLayer;
 import pakvothe.franlauncher.tv.scene.PanelLayer;
 import pakvothe.franlauncher.tv.scene.InputsPanel;
+import pakvothe.franlauncher.tv.media.MediaWatcher;
 import pakvothe.franlauncher.tv.scene.Layer;
+import pakvothe.franlauncher.tv.scene.NowPlayingPill;
 import pakvothe.franlauncher.tv.scene.Panel;
 import pakvothe.franlauncher.tv.scene.RowsPanel;
 import pakvothe.franlauncher.tv.scene.SettingsPanel;
@@ -46,7 +48,8 @@ import pakvothe.franlauncher.tv.util.Launch;
 import pakvothe.franlauncher.tv.util.Trace;
 
 /** La única View. Dueña del árbol de nodos: onDraw solo hace drawRenderNode de cada capa. */
-public final class Stage extends View implements SlowTicker.Listener, ClockTicker.Listener, AppRepository.Listener {
+public final class Stage extends View implements SlowTicker.Listener, ClockTicker.Listener, AppRepository.Listener,
+    MediaWatcher.Listener {
     private final long createdAt;
     private boolean firstFrameLogged;
     final Animator animator = new Animator(this);
@@ -59,6 +62,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final AppListPanel allApps;
     final MenuLayer menu;
     final DimLayer dim = new DimLayer();
+    final NowPlayingPill pill;
+    final MediaWatcher media;
     private final Runnable ambientTimer = this::enterAmbient;
     final InputsRepository inputsRepo;
     final InputsPanel inputs;
@@ -110,6 +115,13 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         themeMode = config.theme;
         animatedBackground = config.animatedBackground;
         clock = new ClockLayer(context);
+        pill = new NowPlayingPill(context, animator);
+        pill.setScale(h / 1080f);
+        clock.setPill(pill);
+        media = new MediaWatcher(context, this);
+        pakvothe.franlauncher.tv.media.MediaAccessService.onConnected = () -> post(() -> {
+            if (started && config.showNowPlaying) media.start();
+        });
         clock.setSecondsMode(config.seconds);
         clock.setHourFormat(config.hourFormat);
         if (cache != null) clock.seedDate(cache.dateDay, cache.dateText);
@@ -124,6 +136,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
         clock.setTheme(theme);
+        pill.setTheme(theme);
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
@@ -139,12 +152,14 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         // Al volver de otra app (o de desinstalar): resincronizar. En el arranque lo hace el primer frame.
         if (firstFrameLogged) syncApps();
         armAmbient();
+        if (config.showNowPlaying) media.start();
         refreshTheme(false);
         clockTicker.start();
         updateSlowTicker();
     }
 
     void onDestroy() {
+        pakvothe.franlauncher.tv.media.MediaAccessService.onConnected = null;
         removeCallbacks(firstSync);
         repo.quit();
     }
@@ -304,6 +319,19 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                 break;
             case SettingsPanel.NOW_PLAYING:
                 config.showNowPlaying = !config.showNowPlaying;
+                if (!config.showNowPlaying) {
+                    media.stop();
+                    onNowPlaying("", "", "", null, false);
+                } else if (media.granted()) {
+                    media.start();
+                } else if (!Launch.start(getContext(), new android.content.Intent(
+                    android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))) {
+                    // Muchas teles no tienen esa pantalla: el comando exacto, igual que en Configurar como inicio.
+                    settings().bind(config);
+                    repo.saveConfig(config.copy());
+                    openText(getContext().getString(R.string.np_title), getContext().getString(R.string.np_body));
+                    return;
+                }
                 break;
             case SettingsPanel.TV:
                 Launch.systemSettings(getContext());
@@ -472,10 +500,34 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         animator.animate(dim.node, Animator.ALPHA, 0f, d);
     }
 
+    @Override
+    public void onNowPlaying(String title, String artist, String pkg, android.graphics.Bitmap art, boolean playing) {
+        String app = "";
+        if (cache != null) for (AppEntry e : cache.apps) if (e.packageName().equals(pkg)) { app = e.label; break; }
+        pill.set(title, artist, app, art, playing);
+        if (focus.setNowPlaying(pill.visible())) {
+            pill.setFocused(false);
+            shelf.setFocus(focus.index(), true);
+        }
+        clock.pillChanged();
+        invalidate();
+    }
+
     /** Tecla lógica del InputRouter. */
     void onKey(int key) {
         armAmbient();
         switch (focus.onKey(key)) {
+            case FocusModel.NP_FOCUS:
+                shelf.setFocus(-1, true);
+                pill.setFocused(true);
+                break;
+            case FocusModel.NP_TOGGLE:
+                media.toggle();
+                break;
+            case FocusModel.NP_LEAVE:
+                pill.setFocused(false);
+                shelf.setFocus(focus.index(), true);
+                break;
             case FocusModel.WAKE:
                 exitAmbient(true);
                 break;
@@ -591,6 +643,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     void onStop() {
         started = false;
         removeCallbacks(ambientTimer);
+        media.stop();
         if (focus.state() == FocusModel.AMBIENT) {
             focus.onKey(FocusModel.BACK);
             exitAmbient(false);
@@ -624,6 +677,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         theme = Theme.of(themeMode, phase);
         sky.setTheme(theme, animate);
         clock.setTheme(theme);
+        pill.setTheme(theme);
+        clock.pillChanged();
         shelf.setTheme(theme);
         panel.setTheme(theme);
         allApps.setTheme(theme);
@@ -696,8 +751,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
             Trace.end();
             // Una sola línea por arranque: bench.sh la usa para onCreate → primer frame.
             // proc = desde que el sistema creó el proceso: no depende de cuánto tarde en pausarse la app anterior.
-            long now = SystemClock.uptimeMillis();
-            Log.i("FranLauncher", "firstframe=" + (now - createdAt) + " proc=" + (now - android.os.Process.getStartUptimeMillis()));
+            long now = SystemClock.uptimeMillis(), born = android.os.Process.getStartUptimeMillis();
+            // Con "Mostrar lo que suena" el sistema bindea el listener y el proceso ya existe antes de la Activity:
+            // ahí proc no mide un arranque en frío y no se reporta.
+            String proc = createdAt - born < 1000 ? String.valueOf(now - born) : "-";
+            Log.i("FranLauncher", "firstframe=" + (now - createdAt) + " proc=" + proc);
             post(firstSync);
         }
     }

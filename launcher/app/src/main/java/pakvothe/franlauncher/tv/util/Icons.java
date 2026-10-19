@@ -38,11 +38,19 @@ public final class Icons {
                 break;
             }
             case SETTINGS: {
+                // Engranaje: 8 dientes (radio 10 en la punta, 7,2 en la base) y agujero central de 3.
                 stroke.setStrokeWidth(1.6f * u);
+                Path p = new Path();
+                int teeth = 8;
+                for (int k = 0; k < teeth * 4; k++) {
+                    double a = (k / (teeth * 4.0)) * 2 * Math.PI - Math.PI / 2 - Math.PI / (teeth * 4);
+                    float r = (k % 4 == 1 || k % 4 == 2 ? 10f : 7.2f) * u;
+                    float x = cx + (float) Math.cos(a) * r, y = cy + (float) Math.sin(a) * r;
+                    if (k == 0) p.moveTo(x, y); else p.lineTo(x, y);
+                }
+                p.close();
+                c.drawPath(p, stroke);
                 c.drawCircle(cx, cy, 3 * u, stroke);
-                float[][] rays = {{0, -10, 0, -7}, {0, 7, 0, 10}, {-7.8f, -7.8f, -5.7f, -5.7f}, {5.7f, 5.7f, 7.8f, 7.8f},
-                    {-10, 0, -7, 0}, {7, 0, 10, 0}, {-7.8f, 7.8f, -5.7f, 5.7f}, {5.7f, -5.7f, 7.8f, -7.8f}};
-                for (float[] r : rays) c.drawLine(cx + r[0] * u, cy + r[1] * u, cx + r[2] * u, cy + r[3] * u, stroke);
                 break;
             }
             case BACK: {

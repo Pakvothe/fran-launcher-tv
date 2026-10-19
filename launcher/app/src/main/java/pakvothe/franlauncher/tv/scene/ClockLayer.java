@@ -27,6 +27,7 @@ public final class ClockLayer extends Layer {
 
     private final Context context;
     public final RenderNode face = new RenderNode("clock.face");
+    private NowPlayingPill pill;
     private final Paint time, secs, date, ampm, line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Calendar cal = Calendar.getInstance();
     private TimeZone zone = TimeZone.getDefault();
@@ -56,6 +57,16 @@ public final class ClockLayer extends Layer {
         ampm = Typography.paint(context, 30, 300, false);
         face.setHasOverlappingRendering(false);
         system24 = DateFormat.is24HourFormat(context);
+    }
+
+    /** La píldora va debajo de la fecha y entra en el centrado del bloque. */
+    public void setPill(NowPlayingPill p) {
+        pill = p;
+        faceDirty = true;
+    }
+
+    public void pillChanged() {
+        faceDirty = true;
     }
 
     public void setTheme(Theme t) {
@@ -184,7 +195,8 @@ public final class ClockLayer extends Layer {
         float timeBox = 240 * s;                       // line-height: 1
         float lineBox = secondsMode == SECONDS_LINE ? (18 + 2 + 10) * s : 0;
         float dateBox = dm.descent - dm.ascent;
-        float blockH = timeBox + 4 * s + lineBox + dateBox;
+        float pillH = pill != null ? pill.blockHeight() : 0;
+        float blockH = timeBox + 4 * s + lineBox + dateBox + pillH;
         float top = centerY - blockH / 2;
         // Línea base de la hora dentro de su caja de 240 px.
         float baseline = top + timeBox / 2 - (tm.ascent + tm.descent) / 2;
@@ -209,6 +221,12 @@ public final class ClockLayer extends Layer {
         float dw = date.measureText(dateText);
         c.drawText(dateText, centerX - dw / 2, y - dm.ascent, date);
         dateBottom = y + dateBox;
+        if (pill != null) {
+            float px = centerX - pill.width() / 2, py = dateBottom + 36 * s;
+            pill.node.setPosition(Math.round(px), Math.round(py), Math.round(px + pill.width()),
+                Math.round(py + 72 * s));
+            c.drawRenderNode(pill.node);
+        }
     }
 
     /**

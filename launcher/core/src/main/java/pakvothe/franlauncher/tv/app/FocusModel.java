@@ -6,7 +6,8 @@ package pakvothe.franlauncher.tv.app;
  */
 public final class FocusModel {
     // Estados
-    public static final int SHELF = 0, MOVING = 1, MENU = 2, PANEL_LIST = 3, PANEL_INDEX = 4, PANEL_ROWS = 5, AMBIENT = 6;
+    public static final int SHELF = 0, MOVING = 1, MENU = 2, PANEL_LIST = 3, PANEL_INDEX = 4, PANEL_ROWS = 5, AMBIENT = 6,
+        NOW_PLAYING = 7;
     // Teclas lógicas
     public static final int LEFT = 0, RIGHT = 1, UP = 2, DOWN = 3, OK = 4, LONG_OK = 5, BACK = 6, MENU_KEY = 7, HOME = 8;
     /** Solo para bench.sh: abre Todas desde cualquier estado del inicio. */
@@ -15,7 +16,8 @@ public final class FocusModel {
     public static final int NONE = 0, FOCUS = 1, LAUNCH = 2, OPEN_ALL = 3, OPEN_INPUTS = 4, OPEN_SETTINGS = 5,
         CLOSE_PANEL = 6, LIST_FOCUS = 7, LIST_LAUNCH = 8, INDEX_ENTER = 9, INDEX_FOCUS = 10, INDEX_EXIT = 11,
         OPEN_MENU = 12, MENU_FOCUS = 13, MENU_PICK = 14, CLOSE_MENU = 15, MOVE_STEP = 16, MOVE_DROP = 17,
-        ROW_FOCUS = 18, ROW_PICK = 19, WAKE = 20, WAKE_HOME = 21;
+        ROW_FOCUS = 18, ROW_PICK = 19, WAKE = 20, WAKE_HOME = 21,
+        NP_FOCUS = 22, NP_TOGGLE = 23, NP_LEAVE = 24;
     // Botones redondos al final de la fila
     public static final int BUTTON_ALL = 0, BUTTON_INPUTS = 1, BUTTON_SETTINGS = 2;
 
@@ -28,6 +30,8 @@ public final class FocusModel {
     private int menuIndex, menuSize, menuFrom;
     // Paneles de filas (Entradas, Ajustes).
     private int rowIndex, rowCount;
+    /** Hay píldora de Reproduciendo: ▲ desde la fila la enfoca. */
+    private boolean nowPlaying;
     private int favorites;
     private boolean hasInputs;
 
@@ -101,6 +105,16 @@ public final class FocusModel {
         rowIndex = 0;
     }
 
+    /** Si desaparece con el foco encima, el foco vuelve a la fila. Devuelve true si hubo que moverlo. */
+    public boolean setNowPlaying(boolean visible) {
+        nowPlaying = visible;
+        if (!visible && state == NOW_PLAYING) {
+            state = SHELF;
+            return true;
+        }
+        return false;
+    }
+
     public void focusRow(int i) {
         rowIndex = Math.max(0, Math.min(i, rowCount - 1));
     }
@@ -158,6 +172,8 @@ public final class FocusModel {
                 return WAKE;
             case MENU:
                 return menu(key);
+            case NOW_PLAYING:
+                return nowPlaying(key);
             case MOVING:
                 return moving(key);
             case SHELF:
@@ -168,6 +184,23 @@ public final class FocusModel {
                 return index(key);
             case PANEL_ROWS:
                 return rows(key);
+            default:
+                return NONE;
+        }
+    }
+
+    private int nowPlaying(int key) {
+        switch (key) {
+            case OK:
+                return NP_TOGGLE;
+            case DOWN:
+            case BACK:
+                state = SHELF;
+                return NP_LEAVE;
+            case HOME:
+                state = SHELF;
+                index = 0;
+                return NP_LEAVE;
             default:
                 return NONE;
         }
@@ -332,6 +365,10 @@ public final class FocusModel {
             case LONG_OK:
             case MENU_KEY:
                 return focusedFavorite() >= 0 ? OPEN_MENU : NONE;
+            case UP:
+                if (!nowPlaying) return NONE;
+                state = NOW_PLAYING;
+                return NP_FOCUS;
             default:
                 return NONE;
         }

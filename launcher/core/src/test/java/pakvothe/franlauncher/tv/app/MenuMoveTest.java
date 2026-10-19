@@ -87,4 +87,21 @@ public class MenuMoveTest {
         m.openMenu(2);
         assertEquals(false, m.enterAmbient());
     }
+
+    @Test
+    public void reproduciendoSeEnfocaConArribaYSeSueltaConAbajo() {
+        FocusModel m = new FocusModel();
+        m.setShelf(2, false);
+        assertEquals(NONE, m.onKey(UP));
+        m.setNowPlaying(true);
+        assertEquals(NP_FOCUS, m.onKey(UP));
+        assertEquals(NOW_PLAYING, m.state());
+        assertEquals(NP_TOGGLE, m.onKey(OK));
+        assertEquals(NONE, m.onKey(LEFT));
+        assertEquals(NP_LEAVE, m.onKey(DOWN));
+        assertEquals(SHELF, m.state());
+        m.onKey(UP);
+        assertEquals(true, m.setNowPlaying(false));
+        assertEquals(SHELF, m.state());
+    }
 }

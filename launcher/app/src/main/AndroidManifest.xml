@@ -42,6 +42,16 @@
             </intent-filter>
         </activity>
 
+        <!-- Solo habilita el acceso a las sesiones de medios; lo prende el usuario si activa "Mostrar lo que suena". -->
+        <service
+            android:name=".media.MediaAccessService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
         <!-- El filtro HOME vive en un alias apagado hasta la Fase 5: si no, la tele muestra un selector al apretar Home. -->
         <activity-alias
             android:name=".Home"
