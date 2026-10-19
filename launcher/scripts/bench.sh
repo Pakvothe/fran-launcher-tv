@@ -26,6 +26,8 @@ IDLE_SAMPLES=12
 GATE=1.1
 # ~30 s de navegación: derecha, izquierda, abajo y arriba (22 21 20 19).
 NAV="${NAV:-$(for i in 1 2 3 4 5; do printf '22 22 22 22 22 21 21 21 21 21 20 19 '; done)}"
+# En el launcher propio, además: abrir Todas, recorrer 30 ítems, el índice y volver con Atrás.
+NAV_LIST="${NAV_LIST:-$(for i in $(seq 30); do printf '20 '; done; for i in $(seq 10); do printf '19 '; done; printf '22 20 20 20 19 21 4')}"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -119,9 +121,23 @@ fi
 
 # --- 3. Fluidez ------------------------------------------------------------
 sh am start -W -n "$PKG/$ACT" >/dev/null; sleep 5
+# Calentamiento: el primer uso tras arrancar paga glifos, ICU y capas una sola vez (el launcher vive días).
+# Se mide aparte como "primer uso" y la fluidez de régimen sale de la pasada siguiente.
+sh dumpsys gfxinfo "$PKG" reset >/dev/null
+sh "for k in 22 22 22 21 21 21; do input keyevent \$k; done"
+if [ "$PKG" = pakvothe.franlauncher.tv ]; then
+  sh am start -n "$PKG/$ACT" --es fl.open all >/dev/null; sleep 1
+  sh "for k in 20 20 20 19 22 20 21 4; do input keyevent \$k; done"; sleep 1
+fi
+WARM_JANK="$(sh dumpsys gfxinfo "$PKG" | sed -n 's/.*Janky frames: \([0-9]*\) (\([0-9.]*\)%).*/\1 de las primeras, \2%/p' | head -1)"
+log "primer uso: $WARM_JANK"
 sh dumpsys gfxinfo "$PKG" reset >/dev/null
 log "navegando ($(echo $NAV | wc -w | tr -d ' ') teclas)"
 sh "for k in $NAV; do input keyevent \$k; done"
+if [ "$PKG" = pakvothe.franlauncher.tv ]; then
+  sh am start -n "$PKG/$ACT" --es fl.open all >/dev/null; sleep 1
+  sh "for k in $NAV_LIST; do input keyevent \$k; done"
+fi
 sleep 1
 GFX="$(sh dumpsys gfxinfo "$PKG")"
 FRAMES="$(echo "$GFX" | awk -F': ' '/Total frames rendered/ {print $2; exit}')"
@@ -192,6 +208,7 @@ fi
   printf '| CPU en reposo (%s s) | %s%% (escala %s%%) | < 2%% |\n' "$((IDLE_SAMPLES * 5))" "$CPU" "$((NCPU*100))"
   printf '| Fluidez | %s%% lentos de %s frames; p50 %s, p90 %s, p99 %s ms | < 1%%, p99 < 16 ms |\n' "${JANK:--}" "${FRAMES:--}" "${P50:--}" "${P90:--}" "${P99:--}"
   printf '| Heap Java en reposo | Δ %s KB | 0 |\n' "$HEAP_DELTA"
+  printf '| Frames lentos en el primer uso (calentamiento) | %s | (informativo) |\n' "${WARM_JANK:--}"
 } >> "$DEVICE_DIR/metricas.md"
 
 # Fluidez: solo frena si sale de objetivo (con pocos frames, el p99 salta de 5 a 8 ms sin significar nada).

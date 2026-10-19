@@ -81,11 +81,12 @@ public final class HomeActivity extends Activity {
         super.onDestroy();
     }
 
-    /** Para medir con bench.sh: am start ... --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2. */
+    /** Para medir con bench.sh: --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2 · --es fl.open all. */
     private void applyDebugExtras(Intent i) {
         if (i == null) return;
         if (i.hasExtra("fl.anim")) stage.setAnimatedBackground(i.getBooleanExtra("fl.anim", true));
         if (i.hasExtra("fl.secs")) stage.setSecondsMode(i.getIntExtra("fl.secs", 0));
         if (i.hasExtra("fl.hour")) stage.setHourFormat(i.getIntExtra("fl.hour", 0));
+        if ("all".equals(i.getStringExtra("fl.open"))) stage.onKey(FocusModel.HOME_OPEN_ALL);
     }
 }

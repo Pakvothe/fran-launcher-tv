@@ -6,7 +6,9 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 
+import java.text.Collator;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -21,8 +23,11 @@ import pakvothe.franlauncher.tv.data.AppRepository;
 import pakvothe.franlauncher.tv.data.Atlas;
 import pakvothe.franlauncher.tv.data.Cache;
 import pakvothe.franlauncher.tv.data.Config;
+import pakvothe.franlauncher.tv.data.Letters;
 import pakvothe.franlauncher.tv.data.Snapshot;
+import pakvothe.franlauncher.tv.scene.AppListPanel;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
+import pakvothe.franlauncher.tv.scene.PanelLayer;
 import pakvothe.franlauncher.tv.scene.Layer;
 import pakvothe.franlauncher.tv.scene.ShelfLayer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
@@ -41,6 +46,10 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     final SkyLayer sky = new SkyLayer(animator);
     final ClockLayer clock;
     final ShelfLayer shelf;
+    final PanelLayer panel;
+    final AppListPanel allApps;
+    /** Apps del panel Todas, ordenadas con el Collator del locale. */
+    private final List<AppEntry> sorted = new ArrayList<>();
     final FocusModel focus = new FocusModel();
     /** Favoritas resueltas contra el caché, en orden. */
     final List<AppEntry> favorites = new ArrayList<>();
@@ -84,11 +93,15 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         if (cache != null) clock.seedDate(cache.dateDay, cache.dateText);
         shelf = new ShelfLayer(context, animator);
         shelf.setInvalidator(this::invalidate);
-        layers = new Layer[] {sky, clock, shelf};
+        panel = new PanelLayer(animator);
+        allApps = new AppListPanel(context, animator);
+        layers = new Layer[] {sky, clock, shelf, panel};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
         clock.setTheme(theme);
         shelf.setTheme(theme);
+        panel.setTheme(theme);
+        allApps.setTheme(theme);
         resolveFavorites();
         focusLastApp(false);
         clock.tick(System.currentTimeMillis());
@@ -148,6 +161,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         }
         focus.setShelf(favorites.size(), hasInputs);
         shelf.setData(favorites, banners, icons, hasInputs);
+        if (panel.current() == allApps) refreshAllApps();
     }
 
     private int indexOfFavorite(String component) {
@@ -168,19 +182,86 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         shelf.setFocus(focus.index(), animate);
     }
 
+    private void refreshAllApps() {
+        sorted.clear();
+        if (cache != null) sorted.addAll(cache.apps);
+        Collator col = Collator.getInstance();
+        col.setStrength(Collator.PRIMARY);
+        sorted.sort((a, b) -> col.compare(a.label, b.label));
+        int[] letters = new int[sorted.size()];
+        for (int i = 0; i < letters.length; i++) letters[i] = Letters.bucket(sorted.get(i).label);
+        focus.setList(letters);
+        allApps.setData(sorted, new HashSet<>(config.favorites), icons);
+    }
+
+    private void openPanel() {
+        panel.show(allApps);
+        float left = panel.left();
+        animator.animate(clock.node, Animator.SCALE, 0.78f, 400);
+        animator.animate(clock.node, Animator.TX, left / 2 - getWidth() / 2f, 400);
+        animator.animate(shelf.node, Animator.ALPHA, 0f, 300);
+        updateSlowTicker();
+    }
+
+    void closePanel(boolean animate) {
+        if (!panel.isOpen()) return;
+        focus.closePanel();
+        panel.hide();
+        int d = animate ? 400 : 0;
+        animator.animate(clock.node, Animator.SCALE, 1f, d);
+        animator.animate(clock.node, Animator.TX, 0f, d);
+        animator.animate(shelf.node, Animator.ALPHA, 1f, animate ? 300 : 0);
+        if (!animate) animator.cancelAll();
+        updateSlowTicker();
+    }
+
+    private void launch(AppEntry e) {
+        if (Launch.app(getContext(), e.component)) {
+            config.lastApp = e.component;
+            repo.saveConfig(config.copy());
+        }
+    }
+
     /** Tecla lógica del InputRouter. */
     void onKey(int key) {
         switch (focus.onKey(key)) {
+            case FocusModel.OPEN_ALL:
+                refreshAllApps();
+                focus.openList();
+                allApps.setIndex(-1, false);
+                allApps.setFocus(0, false);
+                openPanel();
+                break;
+            case FocusModel.LIST_FOCUS:
+                allApps.setFocus(focus.listIndex(), true);
+                break;
+            case FocusModel.INDEX_ENTER:
+            case FocusModel.INDEX_FOCUS:
+                allApps.setIndex(focus.letterIndex(), true);
+                break;
+            case FocusModel.INDEX_EXIT:
+                allApps.setIndex(focus.letterIndex(), false);
+                allApps.setFocus(focus.listIndex(), true);
+                break;
+            case FocusModel.LIST_LAUNCH: {
+                AppEntry e = allApps.focused();
+                if (e != null) launch(e);
+                break;
+            }
+            case FocusModel.CLOSE_PANEL:
+                closePanel(true);
+                if (key == FocusModel.HOME) {
+                    focus.focusShelf(0);
+                    shelf.setFocus(0, true);
+                }
+                break;
             case FocusModel.FOCUS:
                 shelf.setFocus(focus.index(), true);
                 break;
             case FocusModel.LAUNCH: {
                 AppEntry e = favorites.get(focus.focusedFavorite());
                 shelf.press(focus.index());
-                if (Launch.app(getContext(), e.component)) {
-                    config.lastApp = e.component;
-                    repo.saveConfig(config.copy());
-                }
+                launch(e);
                 break;
             }
             default:
@@ -190,6 +271,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     void onStop() {
         started = false;
+        closePanel(false);
         slow.stop();
         clockPendingSince = -1;
         clockTicker.stop();
@@ -202,7 +284,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     }
 
     private void updateSlowTicker() {
-        if (started && animatedBackground) slow.start(); else slow.stop();
+        // Con un panel abierto, el panel tapa la mayor parte: los orbes se pausan.
+        if (started && animatedBackground && !panel.isOpen()) slow.start(); else slow.stop();
     }
 
     /** Re-graba solo si cambió la fase o el modo. */
@@ -213,6 +296,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         sky.setTheme(theme, animate);
         clock.setTheme(theme);
         shelf.setTheme(theme);
+        panel.setTheme(theme);
+        allApps.setTheme(theme);
         invalidate();
     }
 
@@ -266,6 +351,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         for (Layer l : layers) l.setSize(w, h);
+        allApps.layout(panel.panelWidth(), panel.panelHeight(), h / 1080f);
     }
 
     @Override
