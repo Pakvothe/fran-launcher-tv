@@ -832,6 +832,9 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         panel.setTheme(theme);
         allApps.setTheme(theme);
         inputs.setTheme(theme);
+        // Los paneles que se crean al abrirse también cambian de tema (el de Ajustes quedaba con letra blanca).
+        if (settings != null) settings.setTheme(theme);
+        if (text != null) text.setTheme(theme);
         menu.setTheme(theme);
         invalidate();
     }
@@ -898,8 +901,22 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         inputs.layout(panel.panelWidth(), panel.panelHeight(), h / 1080f);
     }
 
+    /** Centinela barato: si el sistema se llevó las display lists, el cielo es el primero en quedar vacío. */
+    private boolean nodesLost() {
+        return firstFrameLogged && (!sky.node.hasDisplayList() || !shelf.rowNode().hasDisplayList());
+    }
+
+    private void restoreAll() {
+        for (Layer l : layers) l.restore();
+        if (settings != null) settings.restore();
+        if (text != null) text.restore();
+        inputs.restore();
+        allApps.restore();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
+        if (nodesLost()) restoreAll();
         for (Layer l : layers) l.draw(canvas);
         if (!firstFrameLogged) {
             firstFrameLogged = true;

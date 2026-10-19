@@ -63,6 +63,11 @@ public final class SkyLayer extends Layer {
     }
 
     @Override
+    protected void onRestore() {
+        if (theme != null) setTheme(theme, false);
+    }
+
+    @Override
     protected void onSizeChanged() {
         base.setPosition(0, 0, w, h);
         fade.setPosition(0, 0, w, h);

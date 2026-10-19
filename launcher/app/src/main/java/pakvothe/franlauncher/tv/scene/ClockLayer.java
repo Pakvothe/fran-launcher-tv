@@ -65,6 +65,12 @@ public final class ClockLayer extends Layer {
         faceDirty = true;
     }
 
+    @Override
+    protected void onRestore() {
+        if (pill != null && theme != null) pill.setTheme(theme);
+        faceDirty = true;
+    }
+
     public void pillChanged() {
         faceDirty = true;
     }

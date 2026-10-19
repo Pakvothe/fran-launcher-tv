@@ -28,6 +28,17 @@ public abstract class Layer {
 
     protected void onSizeChanged() {}
 
+    /**
+     * El sistema borró las display lists (al liberar la ventana cuando abre una app pesada, destroyHardwareResources
+     * se lleva también los nodos hijos). Cada capa vuelve a grabar todo lo suyo.
+     */
+    public void restore() {
+        invalidate();
+        if (w > 0) onRestore();
+    }
+
+    protected void onRestore() {}
+
     public final void invalidate() {
         dirty = true;
     }

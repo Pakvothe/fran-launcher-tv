@@ -70,6 +70,11 @@ public final class PanelLayer extends Layer {
         box.setPosition(x, y, x + panelWidth(), y + panelHeight());
     }
 
+    @Override
+    protected void onRestore() {
+        if (current != null) current.restore();
+    }
+
     public void show(Panel p) {
         open = true;
         current = p;

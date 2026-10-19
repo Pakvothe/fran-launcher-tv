@@ -30,6 +30,11 @@ public abstract class Panel {
         onTheme();
     }
 
+    /** Re-graba todo (ver Layer.restore). */
+    public void restore() {
+        if (theme != null && pw > 0) onTheme();
+    }
+
     protected abstract void onLayout();
 
     protected abstract void onTheme();

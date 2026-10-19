@@ -116,6 +116,11 @@ public final class ShelfLayer extends Layer {
         handler.postDelayed(layerOn, ms + 60);
     }
 
+    @Override
+    protected void onRestore() {
+        rebuild();
+    }
+
     public void setTheme(Theme t) {
         theme = t;
         labelPaint.setColor(t.textSecondary);
