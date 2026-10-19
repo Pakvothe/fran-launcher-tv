@@ -38,8 +38,11 @@ public final class HomeActivity extends Activity {
         super.onStop();
     }
 
-    /** Para medir con bench.sh: am start ... --ez fl.anim false. */
+    /** Para medir con bench.sh: am start ... --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2. */
     private void applyDebugExtras(Intent i) {
-        if (i != null && i.hasExtra("fl.anim")) stage.setAnimatedBackground(i.getBooleanExtra("fl.anim", true));
+        if (i == null) return;
+        if (i.hasExtra("fl.anim")) stage.setAnimatedBackground(i.getBooleanExtra("fl.anim", true));
+        if (i.hasExtra("fl.secs")) stage.setSecondsMode(i.getIntExtra("fl.secs", 0));
+        if (i.hasExtra("fl.hour")) stage.setHourFormat(i.getIntExtra("fl.hour", 0));
     }
 }

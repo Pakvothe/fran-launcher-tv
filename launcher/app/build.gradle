@@ -29,6 +29,9 @@ android {
         resValues false
     }
 
+    // La fuente se mapea directo desde el APK: sin comprimir, ahorra la descompresión en el arranque.
+    androidResources { noCompress 'ttf' }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17

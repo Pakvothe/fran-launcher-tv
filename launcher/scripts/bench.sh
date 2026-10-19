@@ -2,7 +2,8 @@
 # bench.sh — mide el launcher en la tele y deja los números en DEVICE_DIR.
 #
 # Uso:
-#   scripts/bench.sh [-l etiqueta] [-p paquete] [-a activity] [-n corridas] [--no-compile]
+#   scripts/bench.sh [-l etiqueta] [-p paquete] [-a activity] [-n corridas] [--no-compile] [--quick]
+#   --quick: 5 arranques, 30 s de reposo, gate al 20% (~1,5 min). Para pasos que no tocan arranque ni reposo.
 #   scripts/bench.sh -l "stock" -p com.google.android.tvlauncher -a .MainActivity --no-compile
 #
 # Escribe una fila en <DEVICE_DIR>/bench.tsv y una sección en <DEVICE_DIR>/metricas.md.
@@ -20,6 +21,9 @@ ACT=".app.HomeActivity"
 LABEL=""
 RUNS=10
 COMPILE=1
+QUICK=0
+IDLE_SAMPLES=12
+GATE=1.1
 # ~30 s de navegación: derecha, izquierda, abajo y arriba (22 21 20 19).
 NAV="${NAV:-$(for i in 1 2 3 4 5; do printf '22 22 22 22 22 21 21 21 21 21 20 19 '; done)}"
 
@@ -30,6 +34,7 @@ while [ $# -gt 0 ]; do
     -a) ACT="$2"; shift 2 ;;
     -n) RUNS="$2"; shift 2 ;;
     --no-compile) COMPILE=0; shift ;;
+    --quick) QUICK=1; RUNS=5; IDLE_SAMPLES=6; GATE=1.2; shift ;;
     *) echo "argumento desconocido: $1" >&2; exit 1 ;;
   esac
 done
@@ -67,11 +72,14 @@ fi
 log "arranque en frío x$RUNS"
 COLD=""; FF=""; COLD_SRC=""; DESC=0
 for i in $(seq "$RUNS"); do
+  # force-stop + pausa, no "am start -S": con -S el arranque pisa la limpieza del proceso viejo y suma ~300 ms.
+  sh am force-stop "$PKG"; sleep 1.5
   sh logcat -c
-  read -r t COLD_SRC <<<"$(sh am start -S -W -n "$PKG/$ACT" | am_time)" || true
+  t=""; read -r t COLD_SRC <<<"$(sh am start -W -n "$PKG/$ACT" | am_time)" || true
+  COLD_SRC="${COLD_SRC}+fs"  # método force-stop: no comparable con las filas viejas medidas con -S
   # WaitTime < 50 ms = el intent cayó en una instancia viva (un HOME que el sistema relanzó solo): no es un arranque.
   if [ -n "${t:-}" ] && { [ "$COLD_SRC" = TotalTime ] || [ "$t" -ge 50 ]; }; then COLD="$COLD $t"; else DESC=$((DESC+1)); fi
-  sleep 3
+  sleep 1.5
   # Línea que emite el launcher propio al dibujar el primer frame (no existe en el stock).
   f="$(sh logcat -d -s FranLauncher:I | sed -n 's/.*firstframe=\([0-9]*\).*/\1/p' | tail -1 || true)"
   if [ -n "$f" ]; then FF="$FF $f"; fi
@@ -132,11 +140,12 @@ meminfo() {
     s && /Graphics:/    {g=$2}
     s && /TOTAL:/       {t=$2; print j, n, c, g, t; exit}'
 }
-sleep 10
+# El runtime crece ~1,2 MB una sola vez en los primeros ~30 s tras abrir: la ventana arranca después.
+sleep 30
 read -r J0 N0 C0 G0 T0 <<<"$(meminfo)"
 PID="$(sh pidof "$PKG")"
-log "reposo 60 s (pid $PID)"
-CPU="$(sh top -b -q -d 5 -n 12 -p "$PID" -o %CPU | awk 'NF {s+=$1; n++} END {if (n) printf "%.2f", s/n; else print "-"}')"
+log "reposo $((IDLE_SAMPLES * 5)) s (pid $PID)"
+CPU="$(sh top -b -q -d 5 -n "$IDLE_SAMPLES" -p "$PID" -o %CPU | awk 'NF {s+=$1; n++} END {if (n) printf "%.2f", s/n; else print "-"}')"
 read -r J1 N1 C1 G1 T1 <<<"$(meminfo)"
 PRIV=$((J1 + N1 + C1))
 HEAP_DELTA=$((J1 - J0))
@@ -155,11 +164,11 @@ printf "$ROW\n" >> "$TSV"
 REGRESION=""
 if [ -n "$PREV" ]; then
   NEW="$(printf "$ROW")"
-  REGRESION="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" 'BEGIN {
+  REGRESION="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" -v gate="$GATE" 'BEGIN {
     split(prev, a, "\t"); split(new, b, "\t")
-    n = split("7:frío 8:primer_frame 9:home 16:CPU 17:jank 20:p99", m, " ")
+    n = split("7:frío 8:primer_frame 9:home 16:CPU", m, " ")
     for (k = 1; k <= n; k++) { split(m[k], kv, ":"); c=kv[1]
-      if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0 && b[c] > a[c]*1.1)
+      if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0 && b[c] > a[c]*gate)
         printf "%s %s → %s (+%.0f%%); ", substr(m[k], length(c)+2), a[c], b[c], (b[c]/a[c]-1)*100 }
   }')"
 fi
@@ -173,11 +182,13 @@ fi
   printf '| Volver a Home (%s) | %s ms | < 150 ms |\n' "${HOME_SRC:--}" "$HOME_MED"
   printf '| Privado (Java + Native + Code) | %s MB (%s + %s + %s) | < 15 MB |\n' "$(mb $PRIV)" "$(mb $J1)" "$(mb $N1)" "$(mb $C1)"
   printf '| Graphics / TOTAL PSS | %s / %s MB | ≤ 1/5 del stock |\n' "$(mb $G1)" "$(mb $T1)"
-  printf '| CPU en reposo (60 s) | %s%% (escala %s%%) | < 2%% |\n' "$CPU" "$((NCPU*100))"
+  printf '| CPU en reposo (%s s) | %s%% (escala %s%%) | < 2%% |\n' "$((IDLE_SAMPLES * 5))" "$CPU" "$((NCPU*100))"
   printf '| Fluidez | %s%% lentos de %s frames; p50 %s, p90 %s, p99 %s ms | < 1%%, p99 < 16 ms |\n' "${JANK:--}" "${FRAMES:--}" "${P50:--}" "${P90:--}" "${P99:--}"
   printf '| Heap Java en reposo | Δ %s KB | 0 |\n' "$HEAP_DELTA"
 } >> "$DEVICE_DIR/metricas.md"
 
+# Fluidez: solo frena si sale de objetivo (con pocos frames, el p99 salta de 5 a 8 ms sin significar nada).
+awk -v j="${JANK:-0}" -v p="${P99:-0}" 'BEGIN{exit !(j >= 1 || p >= 16)}' && REGRESION="${REGRESION}fluidez ${JANK}% lentos, p99 ${P99} ms; "
 DELTAS=""
 if [ -n "$PREV" ]; then
   DELTAS="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" 'BEGIN { split(prev, a, "\t"); split(new, b, "\t")
