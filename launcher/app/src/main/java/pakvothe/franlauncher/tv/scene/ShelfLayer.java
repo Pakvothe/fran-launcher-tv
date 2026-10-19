@@ -46,7 +46,7 @@ public final class ShelfLayer extends Layer {
     private final Paint labelPaint;
     private final Rect cell = new Rect();
     private final Matrix matrix = new Matrix();
-    private final String[] buttonNames;
+    private String[] buttonNames;
     private Shadow shadowRest, shadowFocus;
     private Theme theme;
     private List<AppEntry> apps = new ArrayList<>();
@@ -118,6 +118,12 @@ public final class ShelfLayer extends Layer {
 
     @Override
     protected void onRestore() {
+        rebuild();
+    }
+
+    /** Cambió el idioma de la app. */
+    public void reloadNames(Context c) {
+        buttonNames = new String[] {c.getString(R.string.all_apps), c.getString(R.string.inputs), c.getString(R.string.settings)};
         rebuild();
     }
 

@@ -55,6 +55,28 @@ public class SnapshotCodecTest {
     }
 
     @Test
+    public void configV1SeMigraSinPerderNadaYConIdiomaDelSistema() throws IOException {
+        ByteArrayOutputStream b = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(b);
+        out.writeInt(SnapshotCodec.CONFIG_MAGIC);
+        out.writeInt(1);
+        out.writeByte(Config.THEME_DARK); out.writeByte(0); out.writeBoolean(true); out.writeByte(1);
+        out.writeByte(0); out.writeBoolean(true); out.writeBoolean(false); out.writeBoolean(true);
+        out.writeShort(1); out.writeUTF("a/.B"); out.writeUTF("a/.B");
+        Config r = SnapshotCodec.readConfig(in(b.toByteArray()));
+        assertEquals(Config.THEME_DARK, r.theme);
+        assertEquals(Arrays.asList("a/.B"), r.favorites);
+        assertEquals(Config.LANG_SYSTEM, r.language);
+    }
+
+    @Test
+    public void idiomaIdaYVuelta() throws IOException {
+        Config c = new Config();
+        c.language = Config.LANG_PT;
+        assertEquals(Config.LANG_PT, SnapshotCodec.readConfig(in(config(c))).language);
+    }
+
+    @Test
     public void configCorruptoDaDefaults() {
         Config r = SnapshotCodec.readConfig(in(new byte[] {1, 2, 3}));
         assertEquals(Config.THEME_AUTO, r.theme);

@@ -38,7 +38,7 @@ public final class AppListPanel extends Panel {
     private final Paint title, count, letter, icon = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = Icons.strokePaint();
     private final Rect src = new Rect(), dst = new Rect();
-    private final String titleText;
+    private String titleText;
     private List<AppEntry> apps = new ArrayList<>();
     private final Set<String> favorites = new HashSet<>();
     private Atlas icons;
@@ -78,6 +78,11 @@ public final class AppListPanel extends Panel {
         list.setClipToBounds(true);
         header.setClipToBounds(false);
         index.setClipToBounds(false);
+    }
+
+    public void setTitle(String t) {
+        titleText = t;
+        rebuild();
     }
 
     /** Lista ya ordenada (Collator) y el conjunto de favoritas para la estrella. */

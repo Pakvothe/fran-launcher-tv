@@ -32,12 +32,17 @@ public final class Snapshot {
 
     private Snapshot() {}
 
-    public static Snapshot read(Context c, int density, int width, int height, String locale, Geometry g) {
+    /** Solo la config: el idioma se aplica antes de leer el caché (la clave del caché es el locale). */
+    public static Config readConfig(Context c) {
+        return readConfig(new File(c.getFilesDir(), CONFIG));
+    }
+
+    public static Snapshot read(Context c, Config config, int density, int width, int height, String locale, Geometry g) {
         Trace.begin(Trace.SNAPSHOT_READ);
         try {
             Snapshot s = new Snapshot();
             File dir = c.getFilesDir();
-            s.config = readConfig(new File(dir, CONFIG));
+            s.config = config;
             Cache cache = readCache(new File(dir, CACHE), density, width, height, locale);
             if (cache != null) {
                 Atlas b = readAtlas(new File(dir, BANNERS), cache.bannerCount, cache.bannerCols, g.bannerW, g.bannerH,

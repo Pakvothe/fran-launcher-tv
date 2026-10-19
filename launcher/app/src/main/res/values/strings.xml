@@ -42,4 +42,7 @@
     <string name="np_body">Requiere acceso a notificaciones. Nada sale de la tele: el permiso solo se usa para saber qué se está reproduciendo.\n\nEsta tele no muestra la pantalla para darlo. Desde una computadora con adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nPara quitarlo: el mismo comando con disallow_listener.</string>
     <string name="font_credit">Outfit (fuente)</string>
     <string name="a11y_now_playing">Reproduciendo: %1$s. Play o pausa</string>
+    <string name="set_language">Idioma</string>
+    <string name="lang_system">Sistema</string>
+    <string name="credit">Fran Launcher · hecho por Pakvothe · github.com/Pakvothe</string>
 </resources>

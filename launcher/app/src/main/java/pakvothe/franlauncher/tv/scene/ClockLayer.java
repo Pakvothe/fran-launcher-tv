@@ -117,7 +117,9 @@ public final class ClockLayer extends Layer {
         zone = TimeZone.getDefault();
         system24 = DateFormat.is24HourFormat(context);
         dayKey = -1;
-        ampmKey = -1;
+        // -2 fuerza recalcular a. m./p. m. también al pasar a 24 h (si no, quedaba el sufijo viejo).
+        ampmKey = -2;
+        ampmText = "";
         faceDirty = true;
     }
 

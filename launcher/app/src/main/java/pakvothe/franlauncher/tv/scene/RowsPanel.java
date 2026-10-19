@@ -32,7 +32,7 @@ public class RowsPanel extends Panel {
     private final RenderNode body = new RenderNode("rows.body");
     private final RenderNode highlight = new RenderNode("rows.focus");
     private final Paint title, rowTitle, rowValue, footer, fill = new Paint(Paint.ANTI_ALIAS_FLAG), stroke = Icons.strokePaint();
-    private final String titleText;
+    private String titleText;
     private final float rowH;
     protected final List<Row> rows = new ArrayList<>();
     private String footerText = "";
@@ -52,6 +52,12 @@ public class RowsPanel extends Panel {
         highlight.setHasOverlappingRendering(false);
     }
 
+    public void setTitle(String t) {
+        titleText = t;
+        rebuild();
+    }
+
+    /** Hasta dos líneas separadas por \n. */
     public void setFooter(String f) {
         footerText = f;
     }
@@ -117,7 +123,9 @@ public class RowsPanel extends Panel {
             }
             rowTitle.setAlpha(255);
             rowValue.setAlpha(255);
-            if (!footerText.isEmpty()) c.drawText(footerText, pw / 2f, ph - 18 * s, footer);
+            String[] lines = footerText.split("\n");
+            for (int i = 0; i < lines.length; i++)
+                c.drawText(lines[i], pw / 2f, ph - 18 * s - (lines.length - 1 - i) * 26 * s, footer);
         });
         Layer.record(content, pw, ph, c -> {
             c.drawRenderNode(header);

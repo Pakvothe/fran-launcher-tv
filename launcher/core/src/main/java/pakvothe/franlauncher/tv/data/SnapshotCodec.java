@@ -8,7 +8,8 @@ import java.io.IOException;
 public final class SnapshotCodec {
     static final int CONFIG_MAGIC = 0x464C4346; // FLCF
     static final int CACHE_MAGIC = 0x464C4341;  // FLCA
-    public static final int CONFIG_VERSION = 1;
+    /** v2: idioma. Una v1 se lee entera y el idioma queda en Sistema. */
+    public static final int CONFIG_VERSION = 2;
     public static final int CACHE_VERSION = 3;
 
     private SnapshotCodec() {}
@@ -27,6 +28,7 @@ public final class SnapshotCodec {
         out.writeShort(c.favorites.size());
         for (String f : c.favorites) out.writeUTF(f);
         out.writeUTF(c.lastApp);
+        out.writeByte(c.language);
     }
 
     /** Nunca devuelve null: si no se puede leer, devuelve los valores por defecto. Versiones viejas se migran acá. */
@@ -47,6 +49,7 @@ public final class SnapshotCodec {
             int n = in.readUnsignedShort();
             for (int i = 0; i < n; i++) c.favorites.add(in.readUTF());
             c.lastApp = in.readUTF();
+            if (version >= 2) c.language = clamp(in.readByte(), 0, Config.LANG_TAGS.length - 1);
             return c;
         } catch (IOException | RuntimeException e) {
             return new Config();

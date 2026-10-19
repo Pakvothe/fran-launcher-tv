@@ -85,6 +85,7 @@ public final class HomeActivity extends Activity {
     @Override
     public void onConfigurationChanged(android.content.res.Configuration c) {
         super.onConfigurationChanged(c);
+        stage.onSystemLocaleChanged();
         stage.onTimeChanged();
         stage.syncApps();
     }

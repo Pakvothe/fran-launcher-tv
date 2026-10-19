@@ -201,7 +201,9 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         screenH = h;
         this.density = density;
         geometry = new Snapshot.Geometry(h);
-        Snapshot snap = Snapshot.read(context, density, w, h, localeTag(), geometry);
+        Config cfg = Snapshot.readConfig(context);
+        applyLanguage(context, cfg.language);
+        Snapshot snap = Snapshot.read(context, cfg, density, w, h, localeTag(), geometry);
         config = snap.config;
         cache = snap.cache;
         banners = snap.banners;
@@ -279,6 +281,45 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         pakvothe.franlauncher.tv.media.MediaAccessService.onConnected = null;
         removeCallbacks(firstSync);
         repo.quit();
+    }
+
+    /**
+     * Idioma propio de la app (o el del sistema). Se aplica sobre los Resources de la Activity sin recrearla;
+     * Locale.setDefault cubre la fecha y el orden.
+     */
+    @SuppressWarnings("deprecation")
+    static void applyLanguage(Context c, int lang) {
+        String tag = Config.LANG_TAGS[Math.max(0, Math.min(lang, Config.LANG_TAGS.length - 1))];
+        java.util.Locale l = tag.isEmpty() ? android.content.res.Resources.getSystem().getConfiguration().getLocales().get(0)
+            : java.util.Locale.forLanguageTag(tag);
+        java.util.Locale.setDefault(l);
+        for (android.content.res.Resources r : new android.content.res.Resources[] {c.getResources(),
+            c.getApplicationContext().getResources()}) {
+            android.content.res.Configuration conf = new android.content.res.Configuration(r.getConfiguration());
+            conf.setLocale(l);
+            r.updateConfiguration(conf, r.getDisplayMetrics());
+        }
+    }
+
+    /** Cambió el idioma: se recargan los textos que cada pieza guardó al crearse. */
+    private void reloadStrings() {
+        Context c = getContext();
+        shelf.reloadNames(c);
+        allApps.setTitle(c.getString(R.string.all_apps));
+        inputs.setTitle(c.getString(R.string.inputs));
+        text = null;
+        settings = null;
+        clock.resetDate();
+        clock.tick(System.currentTimeMillis());
+        syncApps();
+        invalidate();
+    }
+
+    /** Cualquier cambio de configuración trae de vuelta el locale del sistema: se re-aplica el elegido. */
+    void onSystemLocaleChanged() {
+        String before = localeTag();
+        applyLanguage(getContext(), config.language);
+        if (!before.equals(localeTag())) reloadStrings();
     }
 
     private static String localeTag() {
@@ -449,6 +490,13 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                 config.hourFormat = (config.hourFormat + 1) % 3;
                 setHourFormat(config.hourFormat);
                 break;
+            case SettingsPanel.LANGUAGE:
+                config.language = (config.language + 1) % Config.LANG_TAGS.length;
+                applyLanguage(getContext(), config.language);
+                reloadStrings();
+                repo.saveConfig(config.copy());
+                openSettings(SettingsPanel.LANGUAGE);
+                return;
             case SettingsPanel.OLED:
                 config.oledProtection = !config.oledProtection;
                 break;

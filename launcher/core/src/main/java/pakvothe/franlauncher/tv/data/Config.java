@@ -9,6 +9,8 @@ public final class Config {
     public static final int SECONDS_NUMBER = 0, SECONDS_LINE = 1, SECONDS_OFF = 2;
     public static final int HOUR_SYSTEM = 0, HOUR_24 = 1, HOUR_12 = 2;
     public static final int[] AMBIENT_SECONDS = {8, 15, 30, 60};
+    public static final int LANG_SYSTEM = 0, LANG_ES = 1, LANG_EN = 2, LANG_PT = 3;
+    public static final String[] LANG_TAGS = {"", "es", "en", "pt"};
 
     public int theme = THEME_AUTO;
     public int seconds = SECONDS_NUMBER;
@@ -22,6 +24,8 @@ public final class Config {
     public final List<String> favorites = new ArrayList<>();
     public boolean favoritesInitialized;
     public String lastApp = "";
+    /** LANG_*: Sistema o un idioma fijo para la app. */
+    public int language = LANG_SYSTEM;
 
     /** Copia para persistir desde el hilo de I/O mientras el main sigue usando la suya. */
     public Config copy() {
@@ -36,6 +40,7 @@ public final class Config {
         c.favorites.addAll(favorites);
         c.favoritesInitialized = favoritesInitialized;
         c.lastApp = lastApp;
+        c.language = language;
         return c;
     }
 
