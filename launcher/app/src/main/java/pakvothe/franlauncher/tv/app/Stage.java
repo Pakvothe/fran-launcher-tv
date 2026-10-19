@@ -185,7 +185,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     Atlas banners, icons;
     final AppRepository repo;
     private boolean synced;
-    private final Runnable firstSync = this::syncApps;
+    private final Runnable firstSync = this::afterFirstFrame;
     private boolean prewarmed;
     private final Runnable prewarm = this::prewarmPanels;
     private final Calendar calendar = Calendar.getInstance();
@@ -207,8 +207,6 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         banners = snap.banners;
         icons = snap.icons;
         repo = new AppRepository(context, this);
-        android.content.pm.LauncherApps la = context.getSystemService(android.content.pm.LauncherApps.class);
-        if (la != null) la.registerCallback(appsCallback, new android.os.Handler(android.os.Looper.getMainLooper()));
         themeMode = config.theme;
         animatedBackground = config.animatedBackground;
         clock = new ClockLayer(context);
@@ -249,7 +247,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         // Al volver de otra app (o de desinstalar): resincronizar. En el arranque lo hace el primer frame.
         if (firstFrameLogged) syncApps();
         armAmbient();
-        if (config.showNowPlaying) media.start();
+        if (firstFrameLogged && config.showNowPlaying) media.start();
         if (!receiverOn) {
             android.content.IntentFilter f = new android.content.IntentFilter();
             f.addAction(android.content.Intent.ACTION_TIME_CHANGED);
@@ -275,6 +273,14 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     private static String localeTag() {
         return Locale.getDefault().toLanguageTag();
+    }
+
+    /** Lo que habla con el sistema (binder) va después del primer frame: medido, sumaba ~60 ms al arranque. */
+    private void afterFirstFrame() {
+        android.content.pm.LauncherApps la = getContext().getSystemService(android.content.pm.LauncherApps.class);
+        if (la != null) la.registerCallback(appsCallback, new android.os.Handler(android.os.Looper.getMainLooper()));
+        if (started && config.showNowPlaying) media.start();
+        syncApps();
     }
 
     /** Fuera del camino crítico: se llama después del primer frame y al volver de otra app. */
@@ -589,6 +595,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     private void enterAmbient() {
         if (!started || !focus.enterAmbient()) return;
+        updateSlowTicker();
         float s = getHeight() / 1080f;
         animator.animate(shelf.node, Animator.ALPHA, 0f, 500);
         animator.animate(shelf.node, Animator.TY, 32 * s, 500);
@@ -609,6 +616,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     }
 
     private void exitAmbient(boolean animate) {
+        post(this::updateSlowTicker);
         int d = animate ? 300 : 0;
         animator.animate(shelf.node, Animator.ALPHA, 1f, d);
         animator.animate(shelf.node, Animator.TY, 0f, d);
@@ -795,7 +803,9 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
 
     private void updateSlowTicker() {
         // Con un panel abierto, el panel tapa la mayor parte: los orbes se pausan.
-        if (started && animatedBackground && !panel.isOpen()) slow.start(); else slow.stop();
+        // En ambiente (nadie mirando de cerca) el cielo queda estático: en reposo no gastamos más que el stock.
+        if (started && animatedBackground && !panel.isOpen() && focus.state() != FocusModel.AMBIENT) slow.start();
+        else slow.stop();
     }
 
     /** Re-graba solo si cambió la fase o el modo. */
@@ -855,7 +865,8 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         if (minute != lastMinute) {
             lastMinute = minute;
             refreshTheme(true);
-            if (focus.state() == FocusModel.AMBIENT) shiftClock(minute, 800);
+            // Salto sin animación: animarlo eran ~48 frames por minuto en reposo (medido: CPU 1,17% → ver bench).
+            if (focus.state() == FocusModel.AMBIENT) shiftClock(minute, 0);
         }
     }
 
