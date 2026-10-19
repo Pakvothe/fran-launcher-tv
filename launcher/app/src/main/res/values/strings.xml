@@ -40,4 +40,7 @@
     <string name="home_body">Para que Fran Launcher aparezca al apretar Inicio:\n\nAndroid TV: Ajustes &gt; Preferencias del dispositivo &gt; Pantalla principal (o Apps &gt; Apps predeterminadas &gt; Inicio, según la tele) y elegí Fran Launcher.\n\nGoogle TV no ofrece ese selector. Desde una computadora con adb y la depuración de red activada:\n\nadb connect &lt;IP de la tele&gt;:5555\nadb shell cmd package set-home-activity pakvothe.franlauncher.tv/.Home\n\nSi la tele vuelve al inicio original, se puede desactivar ese launcher (reversible):\n\nadb shell pm disable-user --user 0 com.google.android.tvlauncher\n\nPara volver atrás: adb shell pm enable com.google.android.tvlauncher\n\nUna actualización del sistema puede volver a activar el inicio original.</string>
     <string name="np_title">Mostrar lo que suena</string>
     <string name="np_body">Requiere acceso a notificaciones. Nada sale de la tele: el permiso solo se usa para saber qué se está reproduciendo.\n\nEsta tele no muestra la pantalla para darlo. Desde una computadora con adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nPara quitarlo: el mismo comando con disallow_listener.</string>
+    <string name="font_credit">Outfit (fuente)</string>
+    <string name="a11y_selected">%1$s, seleccionado</string>
+    <string name="a11y_now_playing">Reproduciendo: %1$s. Play o pausa</string>
 </resources>

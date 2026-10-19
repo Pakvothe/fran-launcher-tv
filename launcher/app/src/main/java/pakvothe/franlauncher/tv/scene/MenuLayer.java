@@ -86,6 +86,19 @@ public final class MenuLayer extends Layer {
         invalidate();
     }
 
+    public String option(int i) {
+        return options[i];
+    }
+
+    public int optionCount() {
+        return options.length;
+    }
+
+    public void bounds(int i, android.graphics.Rect out) {
+        float t = card.getTop() + (TITLE + i * OPT) * s;
+        out.set(card.getLeft(), Math.round(t), card.getRight(), Math.round(t + OPT * s));
+    }
+
     public void setFocus(int i) {
         animator.animate(highlight, Animator.TY, i * OPT * s, MS);
     }

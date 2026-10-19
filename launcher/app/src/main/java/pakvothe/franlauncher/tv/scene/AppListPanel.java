@@ -267,6 +267,20 @@ public final class AppListPanel extends Panel {
         list.discardDisplayList();
     }
 
+    public int size() {
+        return apps.size();
+    }
+
+    public AppEntry get(int i) {
+        return apps.get(i);
+    }
+
+    /** Rect (relativo al panel) del ítem i, con el foco centrado. */
+    public void bounds(int i, android.graphics.Rect out) {
+        float y = listTop + listH / 2 + (i - focus) * itemH - itemH / 2;
+        out.set(0, Math.round(y), Math.round(pw - INDEX_W * s), Math.round(y + itemH));
+    }
+
     public AppEntry focused() {
         return focus >= 0 && focus < apps.size() ? apps.get(focus) : null;
     }

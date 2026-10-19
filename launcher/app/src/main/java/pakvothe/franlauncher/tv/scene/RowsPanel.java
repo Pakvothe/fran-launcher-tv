@@ -133,6 +133,16 @@ public class RowsPanel extends Panel {
         highlight.setAlpha(rows.isEmpty() ? 0f : 1f);
     }
 
+    public String label(int i) {
+        Row r = rows.get(i);
+        return r.value.isEmpty() ? r.title : r.title + ", " + r.value;
+    }
+
+    public void bounds(int i, android.graphics.Rect out) {
+        float y = HEADER * s + 12 * s + i * rowH * s;
+        out.set(0, Math.round(y), pw, Math.round(y + rowH * s));
+    }
+
     public int size() {
         return rows.size();
     }

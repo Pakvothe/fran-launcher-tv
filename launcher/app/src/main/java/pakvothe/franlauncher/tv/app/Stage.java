@@ -100,6 +100,62 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         }
     };
     private boolean receiverOn;
+    private final A11y a11y = new A11y(this, this::collectA11y);
+
+    @Override
+    public android.view.accessibility.AccessibilityNodeProvider getAccessibilityNodeProvider() {
+        return a11y;
+    }
+
+    private int collectA11y(List<String> labels, List<android.graphics.Rect> rects) {
+        int st = focus.state();
+        if (st == FocusModel.MENU) {
+            for (int i = 0; i < menu.optionCount(); i++) {
+                labels.add(menu.option(i));
+                android.graphics.Rect r = new android.graphics.Rect();
+                menu.bounds(i, r);
+                rects.add(r);
+            }
+            return focus.menuIndex();
+        }
+        int px = Math.round(panel.left()), py = Math.round(48 * getHeight() / 1080f);
+        if (st == FocusModel.PANEL_LIST || st == FocusModel.PANEL_INDEX) {
+            int f = focus.listIndex(), from = Math.max(0, f - 5), to = Math.min(allApps.size() - 1, f + 5);
+            for (int i = from; i <= to; i++) {
+                labels.add(allApps.get(i).label);
+                android.graphics.Rect r = new android.graphics.Rect();
+                allApps.bounds(i, r);
+                r.offset(px, py);
+                rects.add(r);
+            }
+            return f - from;
+        }
+        if (st == FocusModel.PANEL_ROWS && panel.current() instanceof RowsPanel) {
+            RowsPanel rp = (RowsPanel) panel.current();
+            for (int i = 0; i < rp.size(); i++) {
+                labels.add(rp.label(i));
+                android.graphics.Rect r = new android.graphics.Rect();
+                rp.bounds(i, r);
+                r.offset(px, py);
+                rects.add(r);
+            }
+            return focus.rowIndex();
+        }
+        if (pill.visible()) {
+            labels.add(getContext().getString(R.string.a11y_now_playing, pill.title()));
+            // La cara del reloj dibuja la píldora en coordenadas de pantalla.
+            rects.add(new android.graphics.Rect(pill.node.getLeft(), pill.node.getTop(), pill.node.getRight(), pill.node.getBottom()));
+        }
+        int base = labels.size();
+        for (int i = 0; i < shelf.size(); i++) {
+            labels.add(shelf.label(i));
+            android.graphics.Rect r = new android.graphics.Rect();
+            shelf.bounds(i, r);
+            rects.add(r);
+        }
+        if (st == FocusModel.NOW_PLAYING) return 0;
+        return st == FocusModel.SHELF ? base + focus.index() : -1;
+    }
     final MediaWatcher media;
     private final Runnable ambientTimer = this::enterAmbient;
     final InputsRepository inputsRepo;
@@ -404,7 +460,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
                     // La OFL viene cortada a 80 columnas: se unen las líneas de cada párrafo y se sacan los separadores.
                     String flow = ofl.replace("\r", "").replaceAll("(?m)^-+$", "").replaceAll("([^\n])\n(?=[^\n])", "$1 ")
                         .replaceAll("\n{3,}", "\n\n").trim();
-                    String body = "Outfit (fuente)\n\n" + flow;
+                    String body = getContext().getString(R.string.font_credit) + "\n\n" + flow;
                     post(() -> openText(getContext().getString(R.string.set_licenses), body));
                 });
                 return;
@@ -566,6 +622,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     /** Tecla lógica del InputRouter. */
     void onKey(int key) {
         armAmbient();
+        onKeyInner(key);
+        a11y.onFocusChanged();
+    }
+
+    private void onKeyInner(int key) {
         switch (focus.onKey(key)) {
             case FocusModel.NP_FOCUS:
                 shelf.setFocus(-1, true);

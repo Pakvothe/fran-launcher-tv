@@ -57,6 +57,10 @@ public final class NowPlayingPill {
         record();
     }
 
+    public String title() {
+        return t;
+    }
+
     public boolean visible() {
         return visible;
     }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fran Launcher</string>
+    <string name="all_apps">All apps</string>
+    <string name="inputs">Inputs</string>
+    <string name="settings">Settings</string>
+    <string name="move">Move</string>
+    <string name="remove_home">Remove from home</string>
+    <string name="add_home">Add to home</string>
+    <string name="app_info">App info</string>
+    <string name="uninstall">Uninstall</string>
+    <string name="signal_on">Signal</string>
+    <string name="signal_standby">Standby</string>
+    <string name="signal_off">No signal</string>
+    <string name="set_theme">Theme</string>
+    <string name="theme_auto">Auto</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_light">Light</string>
+    <string name="set_seconds">Seconds</string>
+    <string name="seconds_number">Number</string>
+    <string name="seconds_line">Line</string>
+    <string name="off">Off</string>
+    <string name="set_anim">Animated background</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="set_ambient">Ambient mode</string>
+    <string name="ambient_after">after %d s</string>
+    <string name="set_hour">Time format</string>
+    <string name="hour_system">System</string>
+    <string name="hour_24">24 h</string>
+    <string name="hour_12">12 h</string>
+    <string name="set_oled">OLED protection</string>
+    <string name="set_now_playing">Show what\'s playing</string>
+    <string name="set_tv">TV settings</string>
+    <string name="set_home">Default home</string>
+    <string name="set_licenses">Licenses</string>
+    <string name="footer">No data · no ads · no accounts · v%s</string>
+    <string name="open">Open</string>
+    <string name="home_title">Set as home</string>
+    <string name="home_body">To make Fran Launcher appear when you press Home:\n\nAndroid TV: Settings &gt; Device Preferences &gt; Home screen (or Apps &gt; Default apps &gt; Home, depending on the TV) and pick Fran Launcher.\n\nGoogle TV has no such picker. From a computer with adb and network debugging enabled:\n\nadb connect &lt;TV IP&gt;:5555\nadb shell cmd package set-home-activity pakvothe.franlauncher.tv/.Home\n\nIf the TV keeps going back to the original home, that launcher can be disabled (reversible):\n\nadb shell pm disable-user --user 0 com.google.android.tvlauncher\n\nTo undo: adb shell pm enable com.google.android.tvlauncher\n\nA system update may re-enable the original home.</string>
+    <string name="np_title">Show what\'s playing</string>
+    <string name="np_body">Requires notification access. Nothing leaves the TV: the permission is only used to know what is playing.\n\nThis TV does not show the screen to grant it. From a computer with adb:\n\nadb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService\n\nTo remove it: the same command with disallow_listener.</string>
+    <string name="font_credit">Outfit (font)</string>
+    <string name="a11y_selected">%1$s, selected</string>
+    <string name="a11y_now_playing">Now playing: %1$s. Play or pause</string>
+</resources>

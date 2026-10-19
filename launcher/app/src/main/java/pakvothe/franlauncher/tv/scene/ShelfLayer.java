@@ -326,6 +326,23 @@ public final class ShelfLayer extends Layer {
         return rowLeft + it.x + it.w / 2 + animator.target(row, Animator.TX);
     }
 
+    /** Para accesibilidad: nombre y rect en pantalla del ítem i. */
+    public String label(int i) {
+        if (i < 0 || i >= items.size()) return "";
+        Item it = items.get(i);
+        return it.app != null ? it.app.label : buttonNames[it.button];
+    }
+
+    public void bounds(int i, android.graphics.Rect out) {
+        Item it = items.get(i);
+        float cx = centerX(i), cy = top + TH * s / 2;
+        out.set(Math.round(cx - it.w / 2), Math.round(cy - it.h / 2), Math.round(cx + it.w / 2), Math.round(cy + it.h / 2));
+    }
+
+    public int size() {
+        return items.size();
+    }
+
     public float top() {
         return top;
     }
