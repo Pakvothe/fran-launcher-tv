@@ -75,7 +75,7 @@ public final class SkyLayer extends Layer {
         bxB = w * 0.80f - orbPx / 2; byB = h * 0.74f - orbPx / 2;
         axA = 170 * s; ayA = 100 * s;
         axB = 150 * s; ayB = 120 * s;
-        minStep = 3 * s;
+        minStep = 4 * s;
         if (theme != null) setTheme(theme, false);
         onSlowTick(0);
     }
@@ -83,7 +83,7 @@ public final class SkyLayer extends Layer {
     /**
      * Ciclos de ida y vuelta de 48 s y 63 s: períodos distintos para que no se vea un patrón.
      * Devuelve true solo si algún orbe se movió al menos minStep: en esta GPU cada frame cuesta lo mismo
-     * por chico que sea el cambio, y un salto de 3 px en un orbe difuso de 1200 px no se ve.
+     * por chico que sea el cambio, y un salto de 4 px en un orbe difuso de 1200 px no se ve.
      */
     public boolean onSlowTick(long now) {
         double a = (now % 48_000L) / 48_000.0 * 2 * Math.PI;

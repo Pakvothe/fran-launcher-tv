@@ -6,12 +6,17 @@ import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 
 import pakvothe.franlauncher.tv.anim.Animator;
 import pakvothe.franlauncher.tv.anim.ClockTicker;
 import pakvothe.franlauncher.tv.anim.SlowTicker;
+import pakvothe.franlauncher.tv.data.AppEntry;
 import pakvothe.franlauncher.tv.data.AppRepository;
 import pakvothe.franlauncher.tv.data.Atlas;
 import pakvothe.franlauncher.tv.data.Cache;
@@ -19,9 +24,11 @@ import pakvothe.franlauncher.tv.data.Config;
 import pakvothe.franlauncher.tv.data.Snapshot;
 import pakvothe.franlauncher.tv.scene.ClockLayer;
 import pakvothe.franlauncher.tv.scene.Layer;
+import pakvothe.franlauncher.tv.scene.ShelfLayer;
 import pakvothe.franlauncher.tv.scene.SkyLayer;
 import pakvothe.franlauncher.tv.theme.PhaseResolver;
 import pakvothe.franlauncher.tv.theme.Theme;
+import pakvothe.franlauncher.tv.util.Launch;
 import pakvothe.franlauncher.tv.util.Trace;
 
 /** La única View. Dueña del árbol de nodos: onDraw solo hace drawRenderNode de cada capa. */
@@ -33,6 +40,11 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
     private final ClockTicker clockTicker = new ClockTicker(this);
     final SkyLayer sky = new SkyLayer(animator);
     final ClockLayer clock;
+    final ShelfLayer shelf;
+    final FocusModel focus = new FocusModel();
+    /** Favoritas resueltas contra el caché, en orden. */
+    final List<AppEntry> favorites = new ArrayList<>();
+    boolean hasInputs;
     private final Layer[] layers;
     private int lastMinute = -1;
     /** Con los orbes andando, el segundo nuevo viaja en el próximo frame de orbe (≤ 200 ms) en vez de pedir uno propio. */
@@ -70,10 +82,15 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         clock.setSecondsMode(config.seconds);
         clock.setHourFormat(config.hourFormat);
         if (cache != null) clock.seedDate(cache.dateDay, cache.dateText);
-        layers = new Layer[] {sky, clock};
+        shelf = new ShelfLayer(context, animator);
+        shelf.setInvalidator(this::invalidate);
+        layers = new Layer[] {sky, clock, shelf};
         theme = Theme.of(themeMode, currentPhase());
         sky.setTheme(theme, false);
         clock.setTheme(theme);
+        shelf.setTheme(theme);
+        resolveFavorites();
+        focusLastApp(false);
         clock.tick(System.currentTimeMillis());
     }
 
@@ -103,7 +120,72 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         cache = c;
         banners = b;
         icons = i;
+        String focused = focusedComponent();
+        resolveFavorites();
+        int idx = indexOfFavorite(focused);
+        focus.focusShelf(idx >= 0 ? idx : focus.index());
+        shelf.setFocus(focus.index(), false);
         invalidate();
+    }
+
+    /** Mapea config.favorites contra el caché. Primer arranque: las primeras 6 apps con banner. */
+    private void resolveFavorites() {
+        favorites.clear();
+        if (cache != null) {
+            if (!config.favoritesInitialized) {
+                for (AppEntry e : cache.apps) {
+                    if (e.banner >= 0 && config.favorites.size() < 6) config.favorites.add(e.component);
+                }
+                config.favoritesInitialized = true;
+                repo.saveConfig(config.copy());
+            }
+            Map<String, AppEntry> byComponent = new HashMap<>();
+            for (AppEntry e : cache.apps) byComponent.put(e.component, e);
+            for (String f : config.favorites) {
+                AppEntry e = byComponent.get(f);
+                if (e != null) favorites.add(e);
+            }
+        }
+        focus.setShelf(favorites.size(), hasInputs);
+        shelf.setData(favorites, banners, icons, hasInputs);
+    }
+
+    private int indexOfFavorite(String component) {
+        if (component == null) return -1;
+        for (int i = 0; i < favorites.size(); i++) if (favorites.get(i).component.equals(component)) return i;
+        return -1;
+    }
+
+    private String focusedComponent() {
+        int f = focus.focusedFavorite();
+        return f >= 0 && f < favorites.size() ? favorites.get(f).component : null;
+    }
+
+    /** Al volver al inicio, el foco queda sobre la última app lanzada desde el launcher. */
+    void focusLastApp(boolean animate) {
+        int idx = indexOfFavorite(config.lastApp);
+        focus.focusShelf(Math.max(idx, 0));
+        shelf.setFocus(focus.index(), animate);
+    }
+
+    /** Tecla lógica del InputRouter. */
+    void onKey(int key) {
+        switch (focus.onKey(key)) {
+            case FocusModel.FOCUS:
+                shelf.setFocus(focus.index(), true);
+                break;
+            case FocusModel.LAUNCH: {
+                AppEntry e = favorites.get(focus.focusedFavorite());
+                shelf.press(focus.index());
+                if (Launch.app(getContext(), e.component)) {
+                    config.lastApp = e.component;
+                    repo.saveConfig(config.copy());
+                }
+                break;
+            }
+            default:
+                break;
+        }
     }
 
     void onStop() {
@@ -130,6 +212,7 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
         theme = Theme.of(themeMode, phase);
         sky.setTheme(theme, animate);
         clock.setTheme(theme);
+        shelf.setTheme(theme);
         invalidate();
     }
 
@@ -193,7 +276,9 @@ public final class Stage extends View implements SlowTicker.Listener, ClockTicke
             Trace.begin(Trace.FIRST_FRAME);
             Trace.end();
             // Una sola línea por arranque: bench.sh la usa para onCreate → primer frame.
-            Log.i("FranLauncher", "firstframe=" + (SystemClock.uptimeMillis() - createdAt));
+            // proc = desde que el sistema creó el proceso: no depende de cuánto tarde en pausarse la app anterior.
+            long now = SystemClock.uptimeMillis();
+            Log.i("FranLauncher", "firstframe=" + (now - createdAt) + " proc=" + (now - android.os.Process.getStartUptimeMillis()));
             post(firstSync);
         }
     }

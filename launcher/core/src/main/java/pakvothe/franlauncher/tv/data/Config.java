@@ -23,6 +23,22 @@ public final class Config {
     public boolean favoritesInitialized;
     public String lastApp = "";
 
+    /** Copia para persistir desde el hilo de I/O mientras el main sigue usando la suya. */
+    public Config copy() {
+        Config c = new Config();
+        c.theme = theme;
+        c.seconds = seconds;
+        c.animatedBackground = animatedBackground;
+        c.ambient = ambient;
+        c.hourFormat = hourFormat;
+        c.oledProtection = oledProtection;
+        c.showNowPlaying = showNowPlaying;
+        c.favorites.addAll(favorites);
+        c.favoritesInitialized = favoritesInitialized;
+        c.lastApp = lastApp;
+        return c;
+    }
+
     public int ambientSeconds() {
         return AMBIENT_SECONDS[Math.max(0, Math.min(ambient, AMBIENT_SECONDS.length - 1))];
     }

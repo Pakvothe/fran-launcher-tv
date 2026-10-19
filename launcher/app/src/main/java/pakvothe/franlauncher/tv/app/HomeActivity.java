@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
+import android.view.KeyEvent;
 
 /** Ciclo de vida y despacho de teclas. Sin lógica de UI. */
 public final class HomeActivity extends Activity {
@@ -26,13 +27,46 @@ public final class HomeActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        // Home estando en el inicio: el sistema nos re-entrega el intent HOME.
+        if (intent != null && intent.hasCategory(Intent.CATEGORY_HOME)) stage.onKey(FocusModel.HOME);
         applyDebugExtras(intent);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        int k = InputRouter.map(keyCode);
+        if (k < 0) return super.onKeyDown(keyCode, event);
+        if (k == FocusModel.OK) {
+            // OK se resuelve al soltar, para distinguirlo de la pulsación larga.
+            if (event.getRepeatCount() == 0) event.startTracking();
+            return true;
+        }
+        stage.onKey(k);
+        return true;
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (InputRouter.map(keyCode) == FocusModel.OK) {
+            stage.onKey(FocusModel.LONG_OK);
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        int k = InputRouter.map(keyCode);
+        if (k < 0) return super.onKeyUp(keyCode, event);
+        if (k == FocusModel.OK && event.isTracking() && !event.isCanceled()) stage.onKey(FocusModel.OK);
+        return true;
     }
 
     @Override
     protected void onStart() {
         super.onStart();
         stage.onStart();
+        stage.focusLastApp(false);
     }
 
     @Override

@@ -70,7 +70,7 @@ fi
 
 # --- 1. Arranque en frío ---------------------------------------------------
 log "arranque en frío x$RUNS"
-COLD=""; FF=""; COLD_SRC=""; DESC=0
+COLD=""; FF=""; PROC=""; COLD_SRC=""; DESC=0
 for i in $(seq "$RUNS"); do
   # force-stop + pausa, no "am start -S": con -S el arranque pisa la limpieza del proceso viejo y suma ~300 ms.
   sh am force-stop "$PKG"; sleep 1.5
@@ -83,10 +83,13 @@ for i in $(seq "$RUNS"); do
   # Línea que emite el launcher propio al dibujar el primer frame (no existe en el stock).
   f="$(sh logcat -d -s FranLauncher:I | sed -n 's/.*firstframe=\([0-9]*\).*/\1/p' | tail -1 || true)"
   if [ -n "$f" ]; then FF="$FF $f"; fi
+  pr="$(sh logcat -d -s FranLauncher:I | sed -n 's/.*proc=\([0-9]*\).*/\1/p' | tail -1 || true)"
+  if [ -n "$pr" ]; then PROC="$PROC $pr"; fi
 done
 COLD_MED="$(echo $COLD | tr ' ' '\n' | median)"
 FF_MED="$(echo $FF | tr ' ' '\n' | median)"
-log "frío: mediana $COLD_MED ms [$COLD_SRC] ($COLD; $DESC descartadas) · primer frame: $FF_MED"
+PROC_MED="$(echo $PROC | tr ' ' '\n' | median)"
+log "frío: mediana $COLD_MED ms [$COLD_SRC] ($COLD; $DESC descartadas) · primer frame: $FF_MED · proceso→frame: $PROC_MED"
 
 # --- 2. Volver a Home desde otra app ---------------------------------------
 HOME_MED="-"; HOME_SRC=""
@@ -155,10 +158,10 @@ log "memoria: privado $(mb $PRIV) MB (J $(mb $J1) · N $(mb $N1) · C $(mb $C1))
 
 # --- 5. Guardar y comparar -------------------------------------------------
 TSV="$DEVICE_DIR/bench.tsv"
-COLS="fecha\tfuente_tiempos\tetiqueta\tpaquete\tcommit\tapk_kb\tfrio_ms\tprimer_frame_ms\thome_ms\tprivado_kb\tjava_kb\tnative_kb\tcode_kb\tgraphics_kb\ttotal_kb\tcpu_pct\tjank_pct\tp50\tp90\tp99\tframes\theap_delta_kb"
+COLS="fecha\tfuente_tiempos\tetiqueta\tpaquete\tcommit\tapk_kb\tfrio_ms\tprimer_frame_ms\thome_ms\tprivado_kb\tjava_kb\tnative_kb\tcode_kb\tgraphics_kb\ttotal_kb\tcpu_pct\tjank_pct\tp50\tp90\tp99\tframes\theap_delta_kb\tproc_frame_ms"
 [ -f "$TSV" ] || printf "$COLS\n" > "$TSV"
 NOW="$(date '+%Y-%m-%d %H:%M')"
-ROW="$NOW\t${COLD_SRC:--}/${HOME_SRC:--}\t${LABEL:--}\t$PKG\t$COMMIT\t$APK_KB\t$COLD_MED\t$FF_MED\t$HOME_MED\t$PRIV\t$J1\t$N1\t$C1\t$G1\t$T1\t$CPU\t${JANK:--}\t${P50:--}\t${P90:--}\t${P99:--}\t${FRAMES:--}\t$HEAP_DELTA"
+ROW="$NOW\t${COLD_SRC:--}/${HOME_SRC:--}\t${LABEL:--}\t$PKG\t$COMMIT\t$APK_KB\t$COLD_MED\t$FF_MED\t$HOME_MED\t$PRIV\t$J1\t$N1\t$C1\t$G1\t$T1\t$CPU\t${JANK:--}\t${P50:--}\t${P90:--}\t${P99:--}\t${FRAMES:--}\t$HEAP_DELTA\t$PROC_MED"
 PREV="$(awk -F'\t' -v p="$PKG" -v src="${COLD_SRC:--}/${HOME_SRC:--}" 'NR>1 && $4==p && $2==src' "$TSV" | tail -1)"
 printf "$ROW\n" >> "$TSV"
 
@@ -168,7 +171,8 @@ if [ -n "$PREV" ]; then
   NEW="$(printf "$ROW")"
   REGRESION="$(awk -F'\t' -v prev="$PREV" -v new="$NEW" -v gate="$GATE" 'BEGIN {
     split(prev, a, "\t"); split(new, b, "\t")
-    n = split("7:frío 8:primer_frame 9:home 16:CPU", m, " ")
+    # El TotalTime del frío no frena: incluye pausar la app anterior (el launcher de stock varía ±350 ms).
+    n = split("22:proceso→frame 8:primer_frame 9:home", m, " ")
     for (k = 1; k <= n; k++) { split(m[k], kv, ":"); c=kv[1]
       if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0 && b[c] > a[c]*gate)
         printf "%s %s → %s (+%.0f%%); ", substr(m[k], length(c)+2), a[c], b[c], (b[c]/a[c]-1)*100 }
@@ -181,6 +185,7 @@ fi
   printf '| APK | %s KB | < 250 KB |\n' "$APK_KB"
   printf '| Arranque en frío (mediana de %s, %s) | %s ms | < 300 ms |\n' "$RUNS" "${COLD_SRC:--}" "$COLD_MED"
   printf '| onCreate → primer frame | %s ms | ≤ 100 ms |\n' "$FF_MED"
+  printf '| Proceso creado → primer frame | %s ms | (gate del frío) |\n' "$PROC_MED"
   printf '| Volver a Home (%s) | %s ms | < 150 ms |\n' "${HOME_SRC:--}" "$HOME_MED"
   printf '| Privado (Java + Native + Code) | %s MB (%s + %s + %s) | < 15 MB |\n' "$(mb $PRIV)" "$(mb $J1)" "$(mb $N1)" "$(mb $C1)"
   printf '| Graphics / TOTAL PSS | %s / %s MB | ≤ 1/5 del stock |\n' "$(mb $G1)" "$(mb $T1)"
@@ -198,6 +203,8 @@ if [ -n "$PREV" ]; then
     for (k = 1; k <= n; k++) { split(m[k], kv, ":"); c = kv[1]
       if (a[c] ~ /^[0-9.]+$/ && b[c] ~ /^[0-9.]+$/ && a[c] > 0) printf "%s %+.0f%%; ", kv[2], (b[c]/a[c]-1)*100 } }')"
 fi
+# CPU: gate absoluto (objetivo < 2%); con ~4 frames/s una ventana corta varía ±0,4 puntos.
+awk -v c="$CPU" 'BEGIN{exit !(c >= 2)}' && REGRESION="${REGRESION}CPU $CPU% ≥ 2%; "
 awk -v p="$PRIV" 'BEGIN{exit !(p >= 15*1024)}' && REGRESION="${REGRESION}privado $(mb $PRIV) MB ≥ 15 MB; "
 awk -v k="$APK_KB" 'BEGIN{exit !(k >= 250)}' && REGRESION="${REGRESION}APK $APK_KB KB ≥ 250 KB; "
 if [ -n "$DELTAS" ]; then log "deltas de tamaño: $DELTAS"; printf '\nDeltas de tamaño contra la corrida anterior: %s\n' "$DELTAS" >> "$DEVICE_DIR/metricas.md"; fi
