@@ -10,8 +10,25 @@ android {
         targetSdk 36
         versionCode 1
         versionName '0.1'
-        // El alias HOME se prende recién en la Fase 5 (gradle -PhomeEnabled=true).
-        manifestPlaceholders = [homeEnabled: project.findProperty('homeEnabled') ?: 'false']
+        // -PhomeEnabled=true prende el alias HOME; -PbenchExtras=true acepta los extras fl.* de bench.sh.
+        manifestPlaceholders = [homeEnabled: project.findProperty('homeEnabled') ?: 'false',
+                                benchExtras: project.findProperty('benchExtras') ?: 'false']
+    }
+
+    // La clave de release vive fuera del repo: ~/.config/fran-launcher/signing.properties
+    // (storeFile, storePassword, keyAlias, keyPassword). Sin ese archivo, el release se firma con la de debug.
+    def signingFile = new File(System.getProperty('user.home'), '.config/fran-launcher/signing.properties')
+    signingConfigs {
+        if (signingFile.exists()) {
+            def p = new Properties()
+            signingFile.withInputStream { p.load(it) }
+            release {
+                storeFile new File(p.storeFile)
+                storePassword p.storePassword
+                keyAlias p.keyAlias
+                keyPassword p.keyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -19,8 +36,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
-            // Hasta tener clave de subida (Fase 5), el release se firma con la de debug para poder medirlo.
-            signingConfig signingConfigs.debug
+            signingConfig signingFile.exists() ? signingConfigs.release : signingConfigs.debug
         }
     }
 

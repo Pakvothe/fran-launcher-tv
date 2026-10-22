@@ -1,106 +1,115 @@
 # Fran Launcher
 
-Launcher ultraliviano para Android TV: un reloj sobre un cielo que cambia con la hora, tus apps y nada más. Sin datos, sin anuncios, sin cuentas y sin permiso de internet.
+An ultralight Android TV launcher: a clock over a sky that follows the time of day, your apps, and nothing else. No data collection, no ads, no accounts, no internet permission.
 
-Hecho por [Pakvothe](https://github.com/Pakvothe).
+Made by [Pakvothe](https://github.com/Pakvothe).
 
-## Por qué
+[Español](README.es.md) · **[Download the APK](https://github.com/Pakvothe/fran-launcher-tv/releases/latest)** (141 KB, Android TV 10+)
 
-El launcher de stock de Android TV ocupa más de 100 MB, carga recomendaciones y banners remotos y tironea al navegar. Fran Launcher hace menos a propósito: dibuja todo localmente, desde el disco, en una sola View nativa.
+## Why
 
-Medido en una Admiral 4K (Android TV 10, UI a 1080p) contra el launcher de stock, con todas las funciones activas:
+The stock Android TV launcher takes over 100 MB, pulls remote recommendations and banners, and stutters while you navigate. Fran Launcher does less on purpose: everything is drawn locally, from disk, in a single native View.
+
+Measured on an Admiral 4K (Android TV 10, 1080p UI) against the stock launcher, with every feature on:
 
 | | Fran Launcher | Stock |
 |---|---|---|
-| Tamaño del APK | **141 KB** | 12,7 MB |
-| RAM privada tras 10 min de uso | **11 MB** | 54-62 MB |
-| Frames lentos al navegar | **0%** (p99 9 ms) | 5,9% (p99 30 ms) |
-| Arranque en frío | **285 ms** | 625-712 ms |
-| Volver a Home (costo propio) | **3-8 ms** | sin dato |
-| CPU en reposo (modo ambiente) | **0,03%** sin segundero · 0,56% con segundero | ~0,01% |
+| APK size | **141 KB** | 12.7 MB |
+| Private RAM after 10 min | **11 MB** | 54-62 MB |
+| Janky frames while navigating | **0%** (p99 9 ms) | 5.9% (p99 30 ms) |
+| Cold start | **285 ms** | 625-712 ms |
+| Back to Home (own cost) | **3-8 ms** | n/a |
+| Idle CPU (ambient mode) | **0.03%** no seconds · 0.56% with seconds | ~0.01% |
 
-Con el launcher de stock deshabilitado, la tele pasó de 804 MB a 938 MB de RAM disponible a los 2 minutos de un arranque limpio.
+With the stock launcher disabled, available RAM two minutes after a clean boot went from 804 MB to 938 MB.
 
-## Qué tiene
+## Features
 
-- **Cielo de la hora**: degradado y dos orbes de luz difusos que siguen la hora local (noche, amanecer, día, atardecer), con crossfade al cambiar de fase.
-- **Reloj** grande con cifras tabulares, segundero (número, línea o apagado), fecha y formato 12/24 h.
-- **Fila de favoritas** con banners, foco animado, nombre bajo el foco y el foco en la última app usada.
-- **Todas las apps** en un panel lateral: lista estilo rueda selectora, índice de letras y menú de pulsación larga (mover, quitar o agregar al inicio, info, desinstalar).
-- **Entradas** HDMI y AV, con estado de señal (solo si la tele tiene entradas).
-- **Reproduciendo**: qué suena, con carátula y play/pausa. Opcional; necesita acceso a notificaciones, que solo se usa para leer la sesión de medios.
-- **Modo ambiente** tras unos segundos sin tocar nada, con protección OLED (el reloj se desplaza cada minuto) y atenuación nocturna.
-- **Tema** claro, oscuro o automático según la hora.
-- **Idiomas**: español, inglés y portugués, con selector propio en Ajustes.
-- **Accesibilidad**: nodos virtuales para TalkBack.
+- **Sky of the hour**: a gradient and two soft light orbs that follow local time (night, dawn, day, dusk), crossfading between phases.
+- **Big clock** with tabular digits, optional seconds (number, line or off), date, 12/24 h.
+- **Favorites row** with banners, animated focus, label under focus, and focus restored to the last app used.
+- **All apps** side panel: wheel-picker style list, letter index, and a long-press menu (move, remove/add to home, info, uninstall).
+- **Inputs**: HDMI and AV with signal state (only if the TV has inputs).
+- **Now playing**: what's on, with artwork and play/pause. Optional; needs notification access, used only to read the media session.
+- **Ambient mode** after a few idle seconds, with OLED protection (the clock shifts every minute) and night dimming.
+- **Theme**: light, dark, or automatic by time of day.
+- **Languages**: Spanish, English and Portuguese, with its own picker in Settings.
+- **Accessibility**: virtual nodes for TalkBack.
 
-## Cómo está hecho
+## How it's built
 
-- **Java puro**, `minSdk 29`, sin Kotlin, sin AndroidX y sin dependencias de terceros.
-- **Una Activity, una View y un árbol de `RenderNode`**: nada de layouts XML, `RecyclerView` ni `Fragment`. El foco y las animaciones son solo propiedades de nodos ya grabados.
-- **Motor de animación propio** sobre `Choreographer`, con re-targeting y sin allocations por frame.
-- **Cero trabajo en reposo**: sin polling; los orbes y el reloj solo piden frames cuando algo cambió de verdad.
-- **Arranque desde un snapshot binario**: la lista de apps, la configuración y los atlas de banners e íconos se leen en crudo (`FileChannel.map`), sin decodificar imágenes. La consulta a `PackageManager` corre después del primer frame, en un único hilo de I/O.
-- **Lógica testeable en la JVM**: la máquina de foco, el formato del snapshot, las fases del cielo y la secuencia OLED viven en el módulo `core`, sin APIs de Android (41 tests).
+- **Plain Java**, `minSdk 29`, no Kotlin, no AndroidX, zero third-party dependencies.
+- **One Activity, one View, a tree of `RenderNode`s**: no XML layouts, no `RecyclerView`, no `Fragment`. Focus and animations are just properties on already-recorded nodes.
+- **Own animation engine** on top of `Choreographer`, with re-targeting and no per-frame allocations.
+- **Zero idle work**: no polling; orbs and clock only request frames when something actually changed.
+- **Boots from a binary snapshot**: the app list, config, and banner/icon atlases are read raw (`FileChannel.map`), no image decoding. The `PackageManager` query runs after the first frame, on a single I/O thread.
+- **JVM-testable logic**: the focus state machine, snapshot format, sky phases and OLED sequence live in the `core` module with no Android APIs (41 tests).
 
 ```
 launcher/
-  app/       La app Android (HomeActivity, Stage, capas de la escena, datos, medios, TV)
-  core/      Lógica en Java plano + tests JUnit
-  scripts/   bench.sh: medición reproducible en el dispositivo
+  app/       Android app (HomeActivity, Stage, scene layers, data, media, TV)
+  core/      Plain Java logic + JUnit tests
+  scripts/   bench.sh: reproducible on-device benchmark
 ```
 
-## Compilar
+## Install and set as Home
 
-Requiere JDK 17 y el Android SDK (platform 36).
-
-```sh
-cd launcher
-./gradlew :core:test                                  # tests en la JVM
-./gradlew :app:assembleRelease                        # APK sin el filtro HOME
-./gradlew :app:assembleRelease -PhomeEnabled=true     # APK que puede ser el inicio
-```
-
-El filtro HOME vive en un `activity-alias` apagado por defecto, para poder probar la app al lado del launcher de stock sin que la tele muestre un selector al apretar Home.
-
-## Instalar y dejarlo como inicio
+Grab `fran-launcher.apk` from [Releases](https://github.com/Pakvothe/fran-launcher-tv/releases/latest) (or build it) and install it over adb:
 
 ```sh
-adb connect <IP de la tele>:5555
-adb install -r launcher/app/build/outputs/apk/release/app-release.apk
+adb connect <TV IP>:5555
+adb install -r fran-launcher.apk
 adb shell cmd package compile -m speed -f pakvothe.franlauncher.tv
 adb shell cmd package set-home-activity pakvothe.franlauncher.tv/.Home
 ```
 
-En Google TV y en varias teles con Android TV, el botón Home vuelve igual al launcher de stock porque su filtro tiene prioridad de sistema. En ese caso hay que deshabilitarlo (reversible):
+On Google TV and many Android TV devices, the Home button still goes to the stock launcher because its intent filter has system priority. In that case, disable it (reversible):
 
 ```sh
-adb shell pm disable-user --user 0 com.google.android.tvlauncher   # deshabilitar
-adb shell pm enable com.google.android.tvlauncher                  # volver atrás
+adb shell pm disable-user --user 0 com.google.android.tvlauncher   # disable
+adb shell pm enable com.google.android.tvlauncher                  # undo
 ```
 
-Una actualización del sistema puede volver a habilitar el launcher original.
+A system update may re-enable the original launcher.
 
-Para "Mostrar lo que suena" en teles que no tienen la pantalla de acceso a notificaciones:
+For "Now playing" on TVs without a notification access screen:
 
 ```sh
 adb shell cmd notification allow_listener pakvothe.franlauncher.tv/pakvothe.franlauncher.tv.media.MediaAccessService
 ```
 
-## Medir
+## Build
+
+Requires JDK 17 and the Android SDK (platform 36).
 
 ```sh
-launcher/scripts/bench.sh -l "etiqueta"            # completo, ~4 min
-launcher/scripts/bench.sh --quick -l "etiqueta"    # rápido, ~1:45
+cd launcher
+./gradlew :core:test                                  # JVM tests
+./gradlew :app:assembleRelease                        # APK without the HOME filter
+./gradlew :app:assembleRelease -PhomeEnabled=true     # APK that can be the launcher
+```
+
+The HOME filter lives in an `activity-alias` that's off by default, so you can try the app next to the stock launcher without the TV showing a chooser when you press Home. Without a signing config, release builds are signed with the debug key.
+
+## Benchmark
+
+```sh
+export SERIAL=<TV IP>:5555
+launcher/scripts/bench.sh -l "label"            # full, ~4 min
+launcher/scripts/bench.sh --quick -l "label"    # quick, ~1:45
 launcher/scripts/bench.sh -l stock -p com.google.android.tvlauncher -a .MainActivity --no-compile
 ```
 
-Mide arranque en frío, onCreate y proceso hasta el primer frame, volver a Home, fluidez navegando la fila y la lista, memoria desglosada, CPU y heap en reposo. Escribe los resultados en una tabla y sale con código 2 si un tiempo empeora más de 10% contra la corrida anterior o si la memoria o el APK pasan su presupuesto. Manda teclas por adb: no usar la tele mientras corre.
+Measures cold start, onCreate and process-to-first-frame, back-to-Home, smoothness on the row and the list, detailed memory, CPU and idle heap. Results go to `./bench-results` (override with `DEVICE_DIR`); exits with code 2 if any timing regresses more than 10% against the previous run or memory/APK exceed budget. The APK under test must be built with `-PbenchExtras=true` (it accepts `fl.*` launch extras only then). It sends key events over adb: don't use the TV while it runs.
 
-## Privacidad
+## Privacy
 
-La app no pide internet, ubicación ni almacenamiento, y no usa `QUERY_ALL_PACKAGES`. El único permiso es `REQUEST_DELETE_PACKAGES`, para desinstalar apps desde el menú. La configuración no sale del dispositivo (`allowBackup="false"`). El acceso a notificaciones es opcional y el servicio está vacío: solo habilita ver qué se está reproduciendo.
+No internet, location or storage permissions, and no `QUERY_ALL_PACKAGES`. The only permission is `REQUEST_DELETE_PACKAGES`, to uninstall apps from the menu. Config never leaves the device (`allowBackup="false"`). Notification access is optional and the service is empty: it only enables seeing what's playing.
 
-## Créditos
+## License
 
-Fuente [Outfit](https://github.com/Outfitio/Outfit-Fonts), bajo la SIL Open Font License 1.1 (el texto completo está en Ajustes > Licencias).
+[MIT](LICENSE).
+
+## Credits
+
+[Outfit](https://github.com/Outfitio/Outfit-Fonts) font, under the SIL Open Font License 1.1 (full text in Settings > Licenses).

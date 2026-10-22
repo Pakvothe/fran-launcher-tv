@@ -38,6 +38,7 @@
             android:resizeableActivity="false"
             android:screenOrientation="landscape"
             android:configChanges="uiMode|locale|layoutDirection|fontScale|density|screenSize|smallestScreenSize|screenLayout|orientation|keyboard|keyboardHidden|navigation">
+            <meta-data android:name="fl.benchExtras" android:value="${benchExtras}" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
@@ -54,7 +55,7 @@
             </intent-filter>
         </service>
 
-        <!-- El filtro HOME vive en un alias apagado hasta la Fase 5: si no, la tele muestra un selector al apretar Home. -->
+        <!-- El filtro HOME vive en un alias apagado por defecto (-PhomeEnabled=true lo prende): si no, la tele muestra un selector al apretar Home. -->
         <activity-alias
             android:name=".Home"
             android:targetActivity=".app.HomeActivity"

@@ -11,11 +11,12 @@
 # paquete, o si la memoria privada o el APK pasan su presupuesto. La memoria y el APK crecen a propósito con
 # cada función: su delta se muestra, pero el gate es el presupuesto absoluto.
 #
-# Variables: SERIAL (adb), DEVICE_DIR (carpeta de resultados), NAV (keycodes de la navegación).
+# Variables: SERIAL (adb), DEVICE_DIR (carpeta de resultados, por defecto ./bench-results), NAV (keycodes de la navegación).
 set -euo pipefail
 
-SERIAL="${SERIAL:-192.168.1.50:5555}"
+SERIAL="${SERIAL:?definir SERIAL=<ip-de-la-tele>:5555}"
 DEVICE_DIR="${DEVICE_DIR:-./bench-results}"
+mkdir -p "$DEVICE_DIR"
 PKG="pakvothe.franlauncher.tv"
 ACT=".app.HomeActivity"
 LABEL=""

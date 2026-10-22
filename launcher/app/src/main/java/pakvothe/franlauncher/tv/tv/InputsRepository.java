@@ -93,12 +93,15 @@ public final class InputsRepository {
         return String.valueOf(custom != null && custom.length() > 0 ? custom : i.loadLabel(context));
     }
 
+    private boolean registered;
+
     public void watch(Listener l) {
         TvInputManager m = manager();
         if (m == null) return;
         listener = l;
-        if (l != null) m.registerCallback(callback, new Handler(Looper.getMainLooper()));
-        else m.unregisterCallback(callback);
+        if (l != null && !registered) m.registerCallback(callback, new Handler(Looper.getMainLooper()));
+        else if (l == null && registered) m.unregisterCallback(callback);
+        registered = l != null;
     }
 
     public android.content.Intent intentFor(TvInputInfo i) {

@@ -96,13 +96,25 @@ public final class HomeActivity extends Activity {
         super.onDestroy();
     }
 
-    /** Para medir con bench.sh: --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2 · --es fl.open all. */
+    /**
+     * Para medir con bench.sh: --ez fl.anim false · --ei fl.secs 0|1|2 · --ei fl.hour 0|1|2 · --es fl.open all.
+     * La actividad es exportada: solo se aceptan en builds con -PbenchExtras=true.
+     */
     private void applyDebugExtras(Intent i) {
-        if (i == null) return;
+        if (i == null || i.getExtras() == null || !benchExtras()) return;
         if (i.hasExtra("fl.anim")) stage.setAnimatedBackground(i.getBooleanExtra("fl.anim", true));
         if (i.hasExtra("fl.secs")) stage.setSecondsMode(i.getIntExtra("fl.secs", 0));
         if (i.hasExtra("fl.hour")) stage.setHourFormat(i.getIntExtra("fl.hour", 0));
         if ("all".equals(i.getStringExtra("fl.open"))) stage.onKey(FocusModel.HOME_OPEN_ALL);
         if (i.hasExtra("fl.ambient")) stage.config.ambient = i.getIntExtra("fl.ambient", 0);
+    }
+
+    private boolean benchExtras() {
+        try {
+            android.os.Bundle md = getPackageManager().getActivityInfo(getComponentName(), android.content.pm.PackageManager.GET_META_DATA).metaData;
+            return md != null && md.getBoolean("fl.benchExtras", false);
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 }
