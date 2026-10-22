@@ -4,6 +4,8 @@ Launcher ultraliviano para Android TV: un reloj sobre un cielo que cambia con la
 
 Hecho por [Pakvothe](https://github.com/Pakvothe).
 
+![Fran Launcher](docs/demo.gif)
+
 [English](README.md) · **[Descargar el APK](https://github.com/Pakvothe/fran-launcher-tv/releases/latest)** (141 KB, Android TV 10+)
 
 ## Por qué

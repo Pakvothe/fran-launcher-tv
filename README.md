@@ -4,6 +4,8 @@ An ultralight Android TV launcher: a clock over a sky that follows the time of d
 
 Made by [Pakvothe](https://github.com/Pakvothe).
 
+![Fran Launcher](docs/demo.gif)
+
 [Español](README.es.md) · **[Download the APK](https://github.com/Pakvothe/fran-launcher-tv/releases/latest)** (141 KB, Android TV 10+)
 
 ## Why
